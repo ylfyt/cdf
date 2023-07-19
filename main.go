@@ -1,12 +1,41 @@
 package main
 
 import (
+	"cdf/db"
+	"cdf/models"
+	"encoding/json"
 	"fmt"
+	"io"
+	"os"
+
 	"github.com/xwb1989/sqlparser"
 )
 
 func main() {
-	query := "SELECT * FROM users WHERE age > 18"
+	file, err := os.Open("./schema.json")
+	if err != nil {
+		panic(err)
+	}
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		panic(err)
+	}
+
+	var schema models.Schema
+	err = json.Unmarshal(data, &schema)
+	if err != nil {
+		panic(err)
+	}
+
+	db.Start(&schema)
+
+	query := `
+		insert into m_users (
+			id, username
+		)
+		select * from ho.m_users
+	`
 
 	stmt, err := sqlparser.Parse(query)
 	if err != nil {
@@ -14,28 +43,5 @@ func main() {
 		return
 	}
 
-	switch stmt := stmt.(type) {
-	case *sqlparser.Select:
-		// Handle SELECT statement
-		fmt.Println("Parsed SELECT statement")
-
-		// Access table name
-		tableName := stmt.From[0].(*sqlparser.AliasedTableExpr).Expr.(sqlparser.TableName).Name.String()
-		fmt.Printf("Table name: %s\n", tableName)
-
-		// Access WHERE clause
-		whereClause := stmt.Where.Expr
-		fmt.Printf("WHERE clause: %v\n", whereClause)
-
-		// Access SELECT expressions
-		for _, expr := range stmt.SelectExprs {
-			fmt.Printf("SELECT expression: %v\n", expr)
-		}
-
-		// ... handle other parts of the SELECT statement
-
-	default:
-		// Handle other types of statements
-		fmt.Printf("Unsupported statement type: %T\n", stmt)
-	}
+	fmt.Printf("Data: %+v\n", stmt)
 }

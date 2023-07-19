@@ -1,0 +1,133 @@
+{
+  "databases": {
+    "coba": {
+      "type": "PostgreSQL",
+      "name": "coba",
+      "connectionString": "postgresql://postgres:postgres@localhost/coba?sslmode=disable",
+      "tables": {
+        "store": {
+          "name": "store",
+          "fields": {
+            "id": "int",
+            "user_id": "int",
+            "name": "string",
+            "description": "string",
+            "address": "string",
+            "user": {
+              "type": "$users",
+              "references": [
+                "$user_id->$users.id"
+              ]
+            },
+            "products": {
+              "type": "[$product]",
+              "references": [
+                "$id->$product.store_id"
+              ]
+            }
+          }
+        },
+        "users": {
+          "name": "users",
+          "fields": {
+            "id": "int",
+            "name": "string",
+            "email": "string",
+            "gender": "string",
+            "ip_address": "string"
+          }
+        }
+      }
+    },
+    "db_product": {
+      "type": "PostgreSQL",
+      "name": "db_product",
+      "connectionString": "postgresql://postgres:postgres@localhost/db_product?sslmode=disable",
+      "tables": {
+        "product": {
+          "name": "product",
+          "fields": {
+            "id": "int",
+            "store_id": "int",
+            "name": "string",
+            "description": "string",
+            "price": "int",
+            "category_id": "int",
+            "created_at": "timestamp",
+            "updated_at": "timestamp",
+            "deleted_at": "timestamp",
+            "store": {
+              "type": "$store",
+              "references": [
+                "$store_id->$store.id"
+              ]
+            },
+            "inventory": {
+              "type": "$product_inventory",
+              "references": [
+                "$id->$product_inventory.id"
+              ]
+            },
+            "category": {
+              "type": "$product_category",
+              "references": [
+                "$category_id->$product_category.id"
+              ]
+            }
+          }
+        },
+        "product_inventory": {
+          "name": "product_inventory",
+          "fields": {
+            "id": "int",
+            "product_id": "int",
+            "quantity": "int",
+            "created_at": "timestamp",
+            "updated_at": "timestamp"
+          }
+        },
+        "product_category": {
+          "name": "product_category",
+          "fields": {
+            "id": "int",
+            "name": "string",
+            "description": "string",
+            "created_at": "timestamp",
+            "updated_at": "timestamp"
+          }
+        }
+      }
+    },
+    "db_order": {
+      "type": "MongoDB",
+      "name": "db_order",
+      "connectionString": "mongodb://localhost:27017/db_order",
+      "tables": {
+        "order": {
+          "name": "order",
+          "fields": {
+            "_id": "ObjectID",
+            "user_id": "int",
+            "created_at": "timestamp",
+            "updated_at": "timestamp",
+            "items": {
+              "type": "[object]",
+              "fields": {
+                "product_id": "int",
+                "quantity": "int",
+                "created_at": "timestamp",
+                "updated_at": "timestamp",
+                "product": {
+                  "type": "$product",
+                  "references": [
+                    "$product_id->$product.id"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
