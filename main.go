@@ -12,8 +12,8 @@ import (
 	"github.com/xwb1989/sqlparser"
 )
 
-var INSERT_QUERY = `INSERT INTO orders (user_id, product_id) values (true, NULL)`
-var DELETE_QUERY = `DELETE FROM orders WHERE _id = '64bb0284d07aaffcbe24aebb'`
+var INSERT_QUERY = `INSERT INTO orders (user_id, product_id) values (1, NULL)`
+var DELETE_QUERY = `DELETE FROM orders WHERE user_id = CAST('1' AS UNSIGNED)`
 
 func main() {
 	file, err := os.Open("./schema.json")
@@ -34,7 +34,7 @@ func main() {
 
 	core.Start(&schema)
 
-	stmt, err := sqlparser.Parse(INSERT_QUERY)
+	stmt, err := sqlparser.Parse(DELETE_QUERY)
 	if err != nil {
 		fmt.Println("err", err)
 		return
