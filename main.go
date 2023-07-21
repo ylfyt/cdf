@@ -1,12 +1,15 @@
 package main
 
 import (
-	"cdf/api"
+	// "cdf/api"
 	"cdf/core"
 	"cdf/models"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
+
+	"github.com/xwb1989/sqlparser"
 )
 
 func main() {
@@ -27,5 +30,18 @@ func main() {
 	}
 
 	core.Start(&schema)
-	api.Start()
+
+	stmt, err := sqlparser.Parse("DELETE FROM users WHERE id = 1 and name = 'woww' and email = null")
+	if err != nil {
+		fmt.Println("err", err)
+		return
+	}
+
+	res, err := core.Execute(stmt)
+	if err != nil {
+		fmt.Println("err", err)
+		return
+	}
+	fmt.Printf("Data: %+v\n", res)
+	// api.Start()
 }
