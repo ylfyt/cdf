@@ -49,10 +49,10 @@ func executeInsert(stmt *sqlparser.Insert) error {
 	return driver.insert(db.Conn, tableName, columns, values)
 }
 
-func Execute(stmt sqlparser.Statement) error {
+func Execute(stmt sqlparser.Statement) (any, error) {
 	if insertStmt, ok := stmt.(*sqlparser.Insert); ok {
-		return executeInsert(insertStmt)
+		return nil, executeInsert(insertStmt)
 	}
 
-	return fmt.Errorf("unsupported statement")
+	return nil, fmt.Errorf("unsupported statement")
 }
