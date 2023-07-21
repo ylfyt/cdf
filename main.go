@@ -31,7 +31,7 @@ func main() {
 	core.Start(&schema)
 
 	query := `
-	INSERT INTO users (name, email) VALUES ('John Doe', 'john@example.com'), ('Budi', 'budi@gmail.com')
+		INSERT INTO orders (name, email) VALUES ('John Doe', 'john@example.com'), ('Budi', 'budi@gmail.com')
 	`
 
 	stmt, err := sqlparser.Parse(query)

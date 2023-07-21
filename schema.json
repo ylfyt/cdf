@@ -104,7 +104,7 @@
       "connectionString": "mongodb://localhost:27017/db_order",
       "tables": {
         "order": {
-          "name": "order",
+          "name": "orders",
           "fields": {
             "_id": "ObjectID",
             "user_id": "int",

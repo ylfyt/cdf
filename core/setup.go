@@ -1,7 +1,7 @@
 package core
 
 import (
-	handlers "cdf/handlers/pg"
+	"cdf/handlers"
 	"cdf/models"
 	"context"
 	"database/sql"
@@ -87,17 +87,16 @@ func Start(schema *models.Schema) {
 		},
 	}
 
-	// drivers["MongoDB"] = &driver{
-	// 	Type: "MongoDB",
-	// 	get: func(conn any, table string, reqMap map[string]any) ([]map[string]any, error) {
-	// 		if client, ok := conn.(*mongo.Database); ok {
-	// 			fmt.Printf("Data: %+v\n", client)
-	// 			return nil, nil
-	// 		}
+	drivers["MongoDB"] = &driver{
+		Type: "MongoDB",
+		insert: func(conn any, table string, columns []string, values [][]any) error {
+			if client, ok := conn.(*mongo.Database); ok {
+				return handlers.InsertMongo(client, table, columns, values)
+			}
 
-	// 		return nil, fmt.Errorf("db is not type of MongoDB")
-	// 	},
-	// }
+			return fmt.Errorf("db is not type of MongoDB")
+		},
+	}
 
 	for _, dbInfo := range schema.Databases {
 		db, err := getConn(dbInfo.Type, dbInfo.ConnectionString)
