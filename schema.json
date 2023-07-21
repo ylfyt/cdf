@@ -3,7 +3,7 @@
     "coba": {
       "type": "PostgreSQL",
       "name": "coba",
-      "connectionString": "postgresql://postgres:postgres@172.17.16.1/coba?sslmode=disable",
+      "connectionString": "postgresql://postgres:postgres@localhost/coba?sslmode=disable",
       "tables": {
         "store": {
           "name": "store",

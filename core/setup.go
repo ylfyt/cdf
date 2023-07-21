@@ -1,6 +1,7 @@
-package db
+package core
 
 import (
+	handlers "cdf/handlers/pg"
 	"cdf/models"
 	"context"
 	"database/sql"
@@ -12,9 +13,9 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type handler struct {
-	Type string
-	get  func(conn any, table string, reqMap map[string]any) ([]map[string]any, error)
+type driver struct {
+	Type   string
+	insert func(conn any, table string, columns []string, values [][]any) error
 }
 
 type database struct {
@@ -24,11 +25,11 @@ type database struct {
 	Conn any
 }
 
-var handlers map[string]*handler
+var drivers map[string]*driver
 var databaseTable map[string]int
 var databases []*database
 
-func getDb(dbType string, conn string) (any, error) {
+func getConn(dbType string, conn string) (any, error) {
 	if dbType == "PostgreSQL" {
 		sqlDb, err := sql.Open("postgres", conn)
 		return sqlDb, err
@@ -58,40 +59,48 @@ func getDb(dbType string, conn string) (any, error) {
 	return nil, fmt.Errorf("dbtype %s is not found", dbType)
 }
 
+func getDb(table string) *database {
+	idx, exist := databaseTable[table]
+	if !exist {
+		return nil
+	}
+
+	return databases[idx]
+}
+
 func Start(schema *models.Schema) {
-	if handlers != nil || databases != nil {
+	if drivers != nil || databases != nil {
 		fmt.Println("DB already initiated")
 		return
 	}
-	handlers = make(map[string]*handler)
+	drivers = make(map[string]*driver)
 	databases = make([]*database, 0)
 	databaseTable = make(map[string]int)
 
-	handlers["PostgreSQL"] = &handler{
+	drivers["PostgreSQL"] = &driver{
 		Type: "PostgreSQL",
-		get: func(conn any, table string, reqMap map[string]any) ([]map[string]any, error) {
+		insert: func(conn any, table string, columns []string, values [][]any) error {
 			if pg, ok := conn.(*sql.DB); ok {
-				fmt.Printf("Data: %+v\n", pg)
-				return nil, nil
+				return handlers.InsertPg(pg, table, columns, values)
 			}
-			return nil, fmt.Errorf("db is not type of PostgreSQL")
+			return fmt.Errorf("db is not type of PostgreSQL")
 		},
 	}
 
-	handlers["MongoDB"] = &handler{
-		Type: "MongoDB",
-		get: func(conn any, table string, reqMap map[string]any) ([]map[string]any, error) {
-			if client, ok := conn.(*mongo.Database); ok {
-				fmt.Printf("Data: %+v\n", client)
-				return nil, nil
-			}
+	// drivers["MongoDB"] = &driver{
+	// 	Type: "MongoDB",
+	// 	get: func(conn any, table string, reqMap map[string]any) ([]map[string]any, error) {
+	// 		if client, ok := conn.(*mongo.Database); ok {
+	// 			fmt.Printf("Data: %+v\n", client)
+	// 			return nil, nil
+	// 		}
 
-			return nil, fmt.Errorf("db is not type of MongoDB")
-		},
-	}
+	// 		return nil, fmt.Errorf("db is not type of MongoDB")
+	// 	},
+	// }
 
 	for _, dbInfo := range schema.Databases {
-		db, err := getDb(dbInfo.Type, dbInfo.ConnectionString)
+		db, err := getConn(dbInfo.Type, dbInfo.ConnectionString)
 		if err != nil {
 			fmt.Println("Err", err)
 			continue
