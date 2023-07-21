@@ -1,6 +1,7 @@
 package core
 
 import (
+	"cdf/utils"
 	"errors"
 	"fmt"
 
@@ -27,14 +28,11 @@ func insertAction(stmt *sqlparser.Insert) error {
 
 		value := []any{}
 		for _, val := range tuple {
-			switch val := val.(type) {
-			case *sqlparser.SQLVal:
-				value = append(value, string(val.Val))
-			case *sqlparser.NullVal:
-				value = append(value, nil)
-			default:
-				return errors.New("unsupported value type")
+			parsedVal, err := utils.ParseValue(val)
+			if err != nil {
+				return err
 			}
+			value = append(value, parsedVal)
 		}
 
 		values = append(values, value)

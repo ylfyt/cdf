@@ -4,16 +4,23 @@ import (
 	"context"
 	"fmt"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func DeleteMongo(conn *mongo.Database, table string, wheres map[string]string) (int, error) {
+func DeleteMongo(conn *mongo.Database, table string, wheres map[string]any) (int, error) {
 	coll := conn.Collection(table)
 	if coll == nil {
 		return 0, fmt.Errorf("collection %s not found", table)
 	}
 
-	fmt.Printf("Data: %+v\n", wheres)
+	if _id, exist := wheres["_id"]; exist {
+		if _id, ok := _id.(string); ok {
+			if objectID, err := primitive.ObjectIDFromHex(_id); err == nil {
+				wheres["_id"] = objectID
+			}
+		}
+	}
 
 	res, err := coll.DeleteMany(context.TODO(), wheres)
 	if err != nil {

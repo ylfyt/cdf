@@ -1,26 +1,25 @@
 package core
 
 import (
+	"cdf/utils"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/xwb1989/sqlparser"
 )
 
-func getColumnValuesFromWhere(expr sqlparser.Expr) map[string]string {
-	values := make(map[string]string)
+func getColumnValuesFromWhere(expr sqlparser.Expr) map[string]any {
+	values := make(map[string]any)
 
 	// If the expression is a binary comparison
 	if binExpr, ok := expr.(*sqlparser.ComparisonExpr); ok {
 		leftCol, ok := binExpr.Left.(*sqlparser.ColName)
 		if ok {
 			colName := leftCol.Name.String()
-			value := sqlparser.String(binExpr.Right)
+			val, _ := utils.ParseValue(binExpr.Right)
 
-			value = strings.Trim(value, `'`)
 			// Add column name and value to the map
-			values[colName] = value
+			values[colName] = val
 		}
 	}
 
@@ -43,7 +42,7 @@ func getColumnValuesFromWhere(expr sqlparser.Expr) map[string]string {
 }
 
 func deleteAction(stmt *sqlparser.Delete) (any, error) {
-	wheres := map[string]string{}
+	wheres := map[string]any{}
 	if stmt.Where != nil {
 		wheres = getColumnValuesFromWhere(stmt.Where.Expr)
 	}

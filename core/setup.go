@@ -16,7 +16,7 @@ import (
 type driver struct {
 	Type   string
 	insert func(conn any, table string, columns []string, values [][]any) error
-	delete func(conn any, table string, wheres map[string]string) (int, error)
+	delete func(conn any, table string, wheres map[string]any) (int, error)
 }
 
 type database struct {
@@ -86,7 +86,7 @@ func Start(schema *models.Schema) {
 			}
 			return fmt.Errorf("db is not type of PostgreSQL")
 		},
-		delete: func(conn any, table string, wheres map[string]string) (int, error) {
+		delete: func(conn any, table string, wheres map[string]any) (int, error) {
 			if conn, ok := conn.(*sql.DB); ok {
 				return handlers.DeletePg(conn, table, wheres)
 			}
@@ -103,7 +103,7 @@ func Start(schema *models.Schema) {
 
 			return fmt.Errorf("db is not type of MongoDB")
 		},
-		delete: func(conn any, table string, wheres map[string]string) (int, error) {
+		delete: func(conn any, table string, wheres map[string]any) (int, error) {
 			if conn, ok := conn.(*mongo.Database); ok {
 				return handlers.DeleteMongo(conn, table, wheres)
 			}
