@@ -1,7 +1,9 @@
 package core
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/xwb1989/sqlparser"
 )
@@ -16,6 +18,7 @@ func getColumnValuesFromWhere(expr sqlparser.Expr) map[string]string {
 			colName := leftCol.Name.String()
 			value := sqlparser.String(binExpr.Right)
 
+			value = strings.Trim(value, `'`)
 			// Add column name and value to the map
 			values[colName] = value
 		}
@@ -40,9 +43,34 @@ func getColumnValuesFromWhere(expr sqlparser.Expr) map[string]string {
 }
 
 func deleteAction(stmt *sqlparser.Delete) (any, error) {
-	where := getColumnValuesFromWhere(stmt.Where.Expr)
+	wheres := map[string]string{}
+	if stmt.Where != nil {
+		wheres = getColumnValuesFromWhere(stmt.Where.Expr)
+	}
 
-	fmt.Printf("Data: %+v\n", where)
+	if len(wheres) == 0 {
+		return nil, errors.New("deleting table without where expr is not allowed")
+	}
 
-	return nil, nil
+	if len(stmt.TableExprs) == 0 {
+		return nil, errors.New("table name is not found")
+	}
+
+	tableName := ""
+	if expr, ok := stmt.TableExprs[0].(*sqlparser.AliasedTableExpr); ok {
+		if table, ok := expr.Expr.(sqlparser.TableName); ok {
+			tableName = table.Name.CompliantName()
+		}
+	}
+
+	if tableName == "" {
+		return nil, errors.New("table name is not found")
+	}
+
+	db := getDb(tableName)
+	if db == nil {
+		return nil, fmt.Errorf("table %s not found", tableName)
+	}
+	driver := drivers[db.Type]
+	return driver.delete(db.Conn, tableName, wheres)
 }

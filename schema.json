@@ -3,7 +3,7 @@
     "coba": {
       "type": "PostgreSQL",
       "name": "coba",
-      "connectionString": "postgresql://postgres:postgres@localhost/coba?sslmode=disable",
+      "connectionString": "postgresql://postgres:postgres@172.29.112.1/coba?sslmode=disable",
       "tables": {
         "store": {
           "name": "store",
@@ -42,7 +42,7 @@
     "db_product": {
       "type": "PostgreSQL",
       "name": "db_product",
-      "connectionString": "postgresql://postgres:postgres@172.17.16.1/db_product?sslmode=disable",
+      "connectionString": "postgresql://postgres:postgres@172.29.112.1/db_product?sslmode=disable",
       "tables": {
         "product": {
           "name": "product",
@@ -101,7 +101,7 @@
     "db_order": {
       "type": "MongoDB",
       "name": "db_order",
-      "connectionString": "mongodb://localhost:27017/db_order",
+      "connectionString": "mongodb://172.29.112.1:27017/db_order",
       "tables": {
         "order": {
           "name": "orders",

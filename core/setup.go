@@ -16,6 +16,7 @@ import (
 type driver struct {
 	Type   string
 	insert func(conn any, table string, columns []string, values [][]any) error
+	delete func(conn any, table string, wheres map[string]string) (int, error)
 }
 
 type database struct {
@@ -80,21 +81,34 @@ func Start(schema *models.Schema) {
 	drivers["PostgreSQL"] = &driver{
 		Type: "PostgreSQL",
 		insert: func(conn any, table string, columns []string, values [][]any) error {
-			if pg, ok := conn.(*sql.DB); ok {
-				return handlers.InsertPg(pg, table, columns, values)
+			if conn, ok := conn.(*sql.DB); ok {
+				return handlers.InsertPg(conn, table, columns, values)
 			}
 			return fmt.Errorf("db is not type of PostgreSQL")
+		},
+		delete: func(conn any, table string, wheres map[string]string) (int, error) {
+			if conn, ok := conn.(*sql.DB); ok {
+				return handlers.DeletePg(conn, table, wheres)
+			}
+			return 0, fmt.Errorf("db is not type of PostgreSQL")
 		},
 	}
 
 	drivers["MongoDB"] = &driver{
 		Type: "MongoDB",
 		insert: func(conn any, table string, columns []string, values [][]any) error {
-			if client, ok := conn.(*mongo.Database); ok {
-				return handlers.InsertMongo(client, table, columns, values)
+			if conn, ok := conn.(*mongo.Database); ok {
+				return handlers.InsertMongo(conn, table, columns, values)
 			}
 
 			return fmt.Errorf("db is not type of MongoDB")
+		},
+		delete: func(conn any, table string, wheres map[string]string) (int, error) {
+			if conn, ok := conn.(*mongo.Database); ok {
+				return handlers.DeleteMongo(conn, table, wheres)
+			}
+
+			return 0, fmt.Errorf("db is not type of MongoDB")
 		},
 	}
 
