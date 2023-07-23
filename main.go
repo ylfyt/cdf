@@ -14,7 +14,25 @@ import (
 var INSERT_QUERY = `INSERT INTO orders (user_id, product_id) values (1, NULL)`
 var DELETE_QUERY = `DELETE FROM orders WHERE user_id = CAST('1' AS UNSIGNED)`
 var UPDATE_QUERY = `UPDATE orders SET user_id = 'example@gmail.com' WHERE _id = '64bb05369b0011ef0942db1b'`
-var SELECT_QUERY = `SELECT o.*, u.id, u.name FROM users u, orders o`
+var SIMPLE_SELECT = `
+	SELECT
+		u.user_id as userid
+	FROM
+		users u
+`
+
+var SELECT_QUERY = `
+	SELECT 
+		o.*, users.id, users.name AS username 
+	FROM 
+		users, 
+		orders o 
+		JOIN products p 
+			ON o.product_id = p.id AND o.user_id = 10
+		LEFT JOIN authors a 
+			ON o.user_id = a.id
+		LEFT JOIN stores s on a.store_id = s.id 
+`
 
 func main() {
 	file, err := os.Open("./schema.json")
@@ -35,7 +53,7 @@ func main() {
 
 	core.Start(&schema)
 
-	stmt, err := sqlparser.Parse(SELECT_QUERY)
+	stmt, err := sqlparser.Parse(SIMPLE_SELECT)
 	if err != nil {
 		fmt.Println("err", err)
 		return
