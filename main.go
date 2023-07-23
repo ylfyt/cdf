@@ -25,13 +25,9 @@ var SELECT_QUERY = `
 	SELECT 
 		o.*, users.id, users.name AS username 
 	FROM 
-		users, 
-		orders o 
-		JOIN products p 
-			ON o.product_id = p.id AND o.user_id = 10
-		LEFT JOIN authors a 
-			ON o.user_id = a.id
-		LEFT JOIN stores s on a.store_id = s.id 
+		stores s
+		JOIN users u ON s.user_id = u.id
+		LEFT JOIN products p ON p.store_id = s.id AND p.created_at > 100000
 `
 
 func main() {
@@ -53,7 +49,7 @@ func main() {
 
 	core.Start(&schema)
 
-	stmt, err := sqlparser.Parse(SIMPLE_SELECT)
+	stmt, err := sqlparser.Parse(SELECT_QUERY)
 	if err != nil {
 		fmt.Println("err", err)
 		return

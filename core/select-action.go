@@ -1,18 +1,24 @@
 package core
 
 import (
+	"cdf/utils"
 	"fmt"
 	"reflect"
 
 	"github.com/xwb1989/sqlparser"
 )
 
-type OrderMap[T comparable] struct {
-	Keys   []T
-	Values map[T]any
+type Table struct {
+	Cond map[string]any
+	Name string
 }
 
-func (me *OrderMap[T]) Set(key T, val any) {
+type OrderMap[T comparable, R any] struct {
+	Keys   []T
+	Values map[T]R
+}
+
+func (me *OrderMap[T, R]) Set(key T, val R) {
 	if _, exist := me.Values[key]; exist {
 		me.Values[key] = val
 		return
@@ -21,16 +27,16 @@ func (me *OrderMap[T]) Set(key T, val any) {
 	me.Keys = append(me.Keys, key)
 }
 
-func (me *OrderMap[T]) Get(key T) any {
+func (me *OrderMap[T, R]) Get(key T) R {
 	return me.Values[key]
 }
 
-func (me *OrderMap[T]) GetExist(key T) (any, bool) {
+func (me *OrderMap[T, R]) GetExist(key T) (R, bool) {
 	val, exist := me.Values[key]
 	return val, exist
 }
 
-func parseTableExprs(expr sqlparser.TableExpr, tables *OrderMap[string]) error {
+func parseTableExprs(expr sqlparser.TableExpr, tables *OrderMap[string, *Table], cond string) error {
 	if expr, ok := expr.(*sqlparser.AliasedTableExpr); ok {
 		as := expr.As.String()
 		table := expr.Expr.(sqlparser.TableName)
@@ -38,30 +44,36 @@ func parseTableExprs(expr sqlparser.TableExpr, tables *OrderMap[string]) error {
 		if as == "" {
 			as = tableName
 		}
-		tables.Set(as, tableName)
+		
+		tmp := Table{
+			Name: tableName,
+			Cond: nil,	
+		}
+		tables.Set(as, &tmp)
 		return nil
 	}
 
 	if expr, ok := expr.(*sqlparser.JoinTableExpr); ok {
-		parseTableExprs(expr.LeftExpr, tables)
-		parseTableExprs(expr.RightExpr, tables)
+		res := utils.ParseJoinCondition(expr.Condition.On)
+		fmt.Printf("Data: %+v\n", res)
+		parseTableExprs(expr.LeftExpr, tables, "")
+		parseTableExprs(expr.RightExpr, tables, sqlparser.String(expr.Condition))
 	}
 
 	return nil
 }
 
 func selectAction(stmt *sqlparser.Select) (any, error) {
-	for _, from := range stmt.From {
-		tables := OrderMap[string]{
-			Keys:   []string{},
-			Values: map[string]any{},
-		}
-		parseTableExprs(from, &tables)
+	tables := OrderMap[string, *Table]{
+		Keys:   []string{},
+		Values: make(map[string]*Table),
 	}
+	parseTableExprs(stmt.From[0], &tables, "")
 
-	type ColName struct{
-		
-	}
+	fmt.Printf("Data: %+v\n", tables.Get("p"))
+
+
+	return nil, nil
 
 	for _, expr := range stmt.SelectExprs {
 		if expr, ok := expr.(*sqlparser.StarExpr); ok {
@@ -75,7 +87,7 @@ func selectAction(stmt *sqlparser.Select) (any, error) {
 			}
 			colName := aliased.Expr.(*sqlparser.ColName)
 			fmt.Printf("Data: %+v\n", colName)
-			
+
 			as := aliased.As.String()
 			if as == "" {
 
