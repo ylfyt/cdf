@@ -14,6 +14,7 @@ import (
 
 var INSERT_QUERY = `INSERT INTO orders (user_id, product_id) values (1, NULL)`
 var DELETE_QUERY = `DELETE FROM orders WHERE user_id = CAST('1' AS UNSIGNED)`
+var UPDATE_QUERY = `UPDATE orders SET user_id = 'test@gmail.com' WHERE _id = '64bb05369b0011ef0942db1b'`
 
 func main() {
 	file, err := os.Open("./schema.json")
@@ -34,7 +35,7 @@ func main() {
 
 	core.Start(&schema)
 
-	stmt, err := sqlparser.Parse(DELETE_QUERY)
+	stmt, err := sqlparser.Parse(UPDATE_QUERY)
 	if err != nil {
 		fmt.Println("err", err)
 		return

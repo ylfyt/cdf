@@ -18,5 +18,9 @@ func Execute(stmt sqlparser.Statement) (any, error) {
 		return deleteAction(stmt)
 	}
 
+	if stmt, ok := stmt.(*sqlparser.Update); ok {
+		return updateAction(stmt)
+	}
+
 	return nil, fmt.Errorf("unsupported statement")
 }
