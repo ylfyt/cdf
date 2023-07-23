@@ -15,19 +15,21 @@ func traverseTableExpr(expr sqlparser.SimpleTableExpr) string {
 	fmt.Printf("Data: %+v\n", expr)
 	return ""
 }
+
 func selectAction(stmt *sqlparser.Select) (any, error) {
-	// Initialize a slice to store the table names in order
-	var tableNames []string
+	// fields := map[string]bool{}
+	for _, selectExpr := range stmt.SelectExprs {
+		if expr, ok := selectExpr.(*sqlparser.StarExpr); ok {
+			fmt.Printf("Data: %+v\n", expr)
+			continue
+		}
 
-	// Traverse the FROM clause to extract table names
-	if stmt.From != nil {
-		tableNames = traverseFromClause(stmt.From)
-	}
-
-	// Print the list of table names in order
-	fmt.Println("Table list:")
-	for _, tableName := range tableNames {
-		fmt.Println(tableName)
+		if expr, ok := selectExpr.(*sqlparser.AliasedExpr); ok {
+			fmt.Printf("Data: %+v\n", expr)
+			continue
+		}
+		fmt.Println("???", selectExpr)
+		return nil, fmt.Errorf("unsupported expr %+v", selectExpr)
 	}
 
 	return nil, nil

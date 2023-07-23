@@ -1,7 +1,6 @@
 package main
 
 import (
-	// "cdf/api"
 	"cdf/core"
 	"cdf/models"
 	"encoding/json"
@@ -14,7 +13,8 @@ import (
 
 var INSERT_QUERY = `INSERT INTO orders (user_id, product_id) values (1, NULL)`
 var DELETE_QUERY = `DELETE FROM orders WHERE user_id = CAST('1' AS UNSIGNED)`
-var UPDATE_QUERY = `UPDATE orders SET user_id = 'test@gmail.com' WHERE _id = '64bb05369b0011ef0942db1b'`
+var UPDATE_QUERY = `UPDATE orders SET user_id = 'example@gmail.com' WHERE _id = '64bb05369b0011ef0942db1b'`
+var SELECT_QUERY = `SELECT o.*, u.id, u.name FROM users u, orders o`
 
 func main() {
 	file, err := os.Open("./schema.json")
@@ -35,7 +35,7 @@ func main() {
 
 	core.Start(&schema)
 
-	stmt, err := sqlparser.Parse(UPDATE_QUERY)
+	stmt, err := sqlparser.Parse(SELECT_QUERY)
 	if err != nil {
 		fmt.Println("err", err)
 		return
