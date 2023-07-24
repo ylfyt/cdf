@@ -23,11 +23,13 @@ var SIMPLE_SELECT = `
 
 var SELECT_QUERY = `
 	SELECT 
-		o.*, users.id, users.name AS username 
+		o.*, users.id, users.name AS username
 	FROM 
-		stores s
+		store s
 		JOIN users u ON s.user_id = u.id
-		LEFT JOIN products p ON p.store_id = s.id AND 1000 > p.created_at 
+		LEFT JOIN orders o ON o.user_id = u.id AND 1000 > p.created_at 
+	WHERE
+		u.age > 30
 `
 
 func main() {

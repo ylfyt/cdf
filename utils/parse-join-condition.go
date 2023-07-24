@@ -24,7 +24,7 @@ func parseComparison(expr *sqlparser.ComparisonExpr) models.Cond {
 	}
 
 	var rightCond models.CondInfo
-	if col, ok := expr.Left.(*sqlparser.ColName); ok {
+	if col, ok := expr.Right.(*sqlparser.ColName); ok {
 		qua := col.Qualifier.Name.String()
 		field := col.Name.String()
 		rightCond = models.CondInfo{
@@ -32,7 +32,7 @@ func parseComparison(expr *sqlparser.ComparisonExpr) models.Cond {
 			Field:     field,
 		}
 	} else {
-		val, _ := ParseValue(expr.Left.(*sqlparser.SQLVal))
+		val, _ := ParseValue(expr.Right.(*sqlparser.SQLVal))
 		rightCond = models.CondInfo{
 			Value: val,
 		}
