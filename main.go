@@ -27,7 +27,7 @@ var SELECT_QUERY = `
 	FROM 
 		stores s
 		JOIN users u ON s.user_id = u.id
-		LEFT JOIN products p ON p.store_id = s.id AND p.created_at > 100000
+		LEFT JOIN products p ON p.store_id = s.id AND 1000 > p.created_at 
 `
 
 func main() {

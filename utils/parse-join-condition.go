@@ -1,46 +1,57 @@
 package utils
 
 import (
-	"fmt"
+	"cdf/models"
 
 	"github.com/xwb1989/sqlparser"
 )
 
-func ParseJoinCondition(expr sqlparser.Expr) map[string]any {
-	type CondInfo struct {
-		Qualifier string
-		Field     string
-		Value any
+func parseComparison(expr *sqlparser.ComparisonExpr) models.Cond {
+	// TODO: Check op
+	var leftCond models.CondInfo
+	if left, ok := expr.Left.(*sqlparser.ColName); ok {
+		qua := left.Qualifier.Name.String()
+		field := left.Name.String()
+		leftCond = models.CondInfo{
+			Qualifier: qua,
+			Field:     field,
+		}
+	} else {
+		val, _ := ParseValue(expr.Left.(*sqlparser.SQLVal))
+		leftCond = models.CondInfo{
+			Value: val,
+		}
 	}
 
-	type Cond struct {
-		Left  CondInfo
-		Right CondInfo
+	var rightCond models.CondInfo
+	if col, ok := expr.Left.(*sqlparser.ColName); ok {
+		qua := col.Qualifier.Name.String()
+		field := col.Name.String()
+		rightCond = models.CondInfo{
+			Qualifier: qua,
+			Field:     field,
+		}
+	} else {
+		val, _ := ParseValue(expr.Left.(*sqlparser.SQLVal))
+		rightCond = models.CondInfo{
+			Value: val,
+		}
 	}
 
-	values := make(map[string]any)
+	return models.Cond{
+		Left:  leftCond,
+		Right: rightCond,
+		Op:    expr.Operator,
+	}
+}
+
+func ParseJoinCondition(expr sqlparser.Expr) []*models.Cond {
+	values := []*models.Cond{}
 
 	// If the expression is a binary comparison
 	if binExpr, ok := expr.(*sqlparser.ComparisonExpr); ok {
-		// TODO: Check op
-		var leftCond CondInfo
-		if left, ok := binExpr.Left.(*sqlparser.ColName); ok {
-			qua := left.Qualifier.Name.String()
-			field := left.Name.String()
-			leftCond = CondInfo{
-				Qualifier: qua,
-				Field: field,
-			}
-		}
-
-		leftCol, ok := binExpr.Left.(*sqlparser.ColName)
-		if ok {
-			colName := leftCol.Name.String()
-			val, _ := ParseValue(binExpr.Right)
-
-			// Add column name and value to the map
-			values[colName] = val
-		}
+		cond := parseComparison(binExpr)
+		values = append(values, &cond)
 	}
 
 	// If the expression is a logical AND expression
@@ -50,12 +61,8 @@ func ParseJoinCondition(expr sqlparser.Expr) map[string]any {
 		rightValues := ParseJoinCondition(andExpr.Right)
 
 		// Merge the values from both sides
-		for col, val := range leftValues {
-			values[col] = val
-		}
-		for col, val := range rightValues {
-			values[col] = val
-		}
+		values = append(values, leftValues...)
+		values = append(values, rightValues...)
 	}
 
 	return values

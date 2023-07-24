@@ -1,6 +1,7 @@
 package core
 
 import (
+	"cdf/models"
 	"cdf/utils"
 	"fmt"
 	"reflect"
@@ -8,35 +9,7 @@ import (
 	"github.com/xwb1989/sqlparser"
 )
 
-type Table struct {
-	Cond map[string]any
-	Name string
-}
-
-type OrderMap[T comparable, R any] struct {
-	Keys   []T
-	Values map[T]R
-}
-
-func (me *OrderMap[T, R]) Set(key T, val R) {
-	if _, exist := me.Values[key]; exist {
-		me.Values[key] = val
-		return
-	}
-	me.Values[key] = val
-	me.Keys = append(me.Keys, key)
-}
-
-func (me *OrderMap[T, R]) Get(key T) R {
-	return me.Values[key]
-}
-
-func (me *OrderMap[T, R]) GetExist(key T) (R, bool) {
-	val, exist := me.Values[key]
-	return val, exist
-}
-
-func parseTableExprs(expr sqlparser.TableExpr, tables *OrderMap[string, *Table], cond string) error {
+func parseTableExprs(expr sqlparser.TableExpr, tables *models.OrderMap[string, *models.QueryTable], conds []*models.Cond) error {
 	if expr, ok := expr.(*sqlparser.AliasedTableExpr); ok {
 		as := expr.As.String()
 		table := expr.Expr.(sqlparser.TableName)
@@ -44,10 +17,10 @@ func parseTableExprs(expr sqlparser.TableExpr, tables *OrderMap[string, *Table],
 		if as == "" {
 			as = tableName
 		}
-		
-		tmp := Table{
-			Name: tableName,
-			Cond: nil,	
+
+		tmp := models.QueryTable{
+			Name:  tableName,
+			Conds: conds,
 		}
 		tables.Set(as, &tmp)
 		return nil
@@ -55,23 +28,21 @@ func parseTableExprs(expr sqlparser.TableExpr, tables *OrderMap[string, *Table],
 
 	if expr, ok := expr.(*sqlparser.JoinTableExpr); ok {
 		res := utils.ParseJoinCondition(expr.Condition.On)
-		fmt.Printf("Data: %+v\n", res)
-		parseTableExprs(expr.LeftExpr, tables, "")
-		parseTableExprs(expr.RightExpr, tables, sqlparser.String(expr.Condition))
+		parseTableExprs(expr.LeftExpr, tables, nil)
+		parseTableExprs(expr.RightExpr, tables, res)
 	}
 
 	return nil
 }
 
 func selectAction(stmt *sqlparser.Select) (any, error) {
-	tables := OrderMap[string, *Table]{
+	tables := models.OrderMap[string, *models.QueryTable]{
 		Keys:   []string{},
-		Values: make(map[string]*Table),
+		Values: make(map[string]*models.QueryTable),
 	}
-	parseTableExprs(stmt.From[0], &tables, "")
+	parseTableExprs(stmt.From[0], &tables, nil)
 
-	fmt.Printf("Data: %+v\n", tables.Get("p"))
-
+	fmt.Printf("Data: %+v\n", tables)
 
 	return nil, nil
 
