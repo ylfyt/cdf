@@ -11,23 +11,28 @@ import (
 	"github.com/xwb1989/sqlparser"
 )
 
-var INSERT_QUERY = `INSERT INTO orders (user_id, product_id) values (1, NULL)`
-var DELETE_QUERY = `DELETE FROM orders WHERE user_id = CAST('1' AS UNSIGNED)`
-var UPDATE_QUERY = `UPDATE orders SET user_id = 'example@gmail.com' WHERE _id = '64bb05369b0011ef0942db1b'`
+var INSERT_QUERY = `INSERT INTO orders (name, email) values ('Yudi', 'yudi@gmail.com')`
+
+var DELETE_QUERY = `DELETE FROM stores WHERE _id = '64bef4d717b947ddb0dc725f'`
+var UPDATE_QUERY = `UPDATE orders SET user_id = 'example@gmail.com' WHERE _id = '64bef4d78c548ee82bc69fd3'`
+
 var SIMPLE_SELECT = `
 	SELECT
-		u.user_id as userid
+		s.*
 	FROM
-		users u
+		store s join users u on s.user_id = u.id 
 `
 
 var SELECT_QUERY = `
 	SELECT 
-		o.*, users.id, users.name AS username
+		s.id,
+		s.name,
+		s.user_id,
+		u.name as username
 	FROM 
 		store s
 		JOIN users u ON s.user_id = u.id
-		LEFT JOIN orders o ON o.user_id = u.id AND 1000 > p.created_at 
+		LEFT JOIN orders o ON o.user_id = u.id AND 1000 > p.created_at and query.async = 1 
 	WHERE
 		u.age > 30
 `

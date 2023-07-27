@@ -38,10 +38,11 @@ func parseTableExprs(expr sqlparser.TableExpr, tables *models.OrderMap[string, *
 	return nil
 }
 
-func selectPG(conn *sql.DB, query *models.OrderMap[string, *models.QueryTable]) {
+func selectPG(conn *sql.DB, tables *models.OrderMap[string, *models.QueryTable]) {
 	froms := []string{}
-	for _, qualifier := range query.Keys {
-		table := query.Get(qualifier)
+	selects := []string{}
+	for _, qualifier := range tables.Keys {
+		table := tables.Get(qualifier)
 		conds := []string{}
 		for _, cond := range table.Conds {
 			left := ""
@@ -85,13 +86,114 @@ func selectPG(conn *sql.DB, query *models.OrderMap[string, *models.QueryTable]) 
 			}
 		}
 
+		if table.SelectFields != nil && len(table.SelectFields) == 0 {
+			selects = append(selects, fmt.Sprintf("%s.*", qualifier))
+		}
+		for as, field := range table.SelectFields {
+			selects = append(selects, fmt.Sprintf("%s.%s AS %s", qualifier, field, as))
+		}
+
 		froms = append(froms, from)
 	}
 
-	fmt.Printf("Data: %+v\n", froms)
+	query := fmt.Sprintf(`
+		SELECT
+			%s
+		FROM
+			%s
+	`, strings.Join(selects, ","), strings.Join(froms, " "))
+
+	fmt.Println("QUERY:", query)
+
+	rows, err := conn.Query(query)
+	if err != nil {
+		fmt.Println("Err", err)
+		return
+	}
+	columns, err := rows.Columns()
+	if err != nil {
+		fmt.Println("Err", err)
+		return
+	}
+
+	numOfColumns := len(columns)
+	scans := make([]any, numOfColumns)
+	scansPtr := make([]any, numOfColumns)
+
+	for i := range scans {
+		scansPtr[i] = &scans[i]
+	}
+
+	var result []map[string]any
+	for rows.Next() {
+		err := rows.Scan(scansPtr...)
+		if err != nil {
+			fmt.Println("Err", err)
+			return
+		}
+		row := make(map[string]any)
+		for i, v := range columns {
+			row[v] = scans[i]
+		}
+		result = append(result, row)
+	}
+
+	fmt.Println("Data:", result)
 }
 
 func selectAction(stmt *sqlparser.Select) (any, error) {
+	type SelectField struct {
+		Qualifier string
+		Field     string
+		As        string
+		Val       any
+	}
+
+	// qualifier -> as -> field
+	fields := map[string]map[string]any{}
+	// fields := []SelectField{}
+	for _, expr := range stmt.SelectExprs {
+		if expr, ok := expr.(*sqlparser.StarExpr); ok {
+			qua := expr.TableName.Name.String()
+			if fields[qua] == nil {
+				fields[qua] = make(map[string]any)
+			}
+			continue
+		}
+		if aliased, ok := expr.(*sqlparser.AliasedExpr); ok {
+			if val, ok := aliased.Expr.(*sqlparser.SQLVal); ok {
+				val, _ := utils.ParseValue(val)
+				if fields["=VALUE="] == nil {
+					fields["=VALUE="] = make(map[string]any)
+				}
+				fields["=VALUE="][aliased.As.String()] = val
+				continue
+			}
+			colName := aliased.Expr.(*sqlparser.ColName)
+			field := colName.Name.String()
+			qua := colName.Qualifier.Name.String()
+			as := aliased.As.String()
+			if as == "" {
+				as = field
+			}
+			if fields[qua] == nil {
+				fields[qua] = make(map[string]any)
+			}
+			fields[qua][as] = field
+			continue
+		}
+		fmt.Println("???", reflect.TypeOf(expr))
+	}
+
+	fmt.Printf("Fields: %+v\n", fields)
+
+	wheres := map[string]any{}
+	if stmt.Where != nil {
+		wheres = getColumnValuesFromWhere(stmt.Where.Expr)
+	}
+
+	fmt.Printf("Where %+v\n", wheres)
+
 	queryTables := models.OrderMap[string, *models.QueryTable]{
 		Keys:   []string{},
 		Values: make(map[string]*models.QueryTable),
@@ -102,8 +204,24 @@ func selectAction(stmt *sqlparser.Select) (any, error) {
 	var tmpOrderMap *models.OrderMap[string, *models.QueryTable] = nil
 	var lastDb *database = nil
 
-	for _, key := range queryTables.Keys {
-		queryTable := queryTables.Get(key)
+	for qua := range fields {
+		if qua == "" {
+			continue
+		}
+		table := queryTables.Get(qua)
+		if table == nil {
+			return nil, fmt.Errorf("qualifier %s is not found", qua)
+		}
+	}
+
+	for _, qua := range queryTables.Keys {
+		queryTable := queryTables.Get(qua)
+		key := qua
+		if qua == queryTable.Name {
+			key = ""
+		}
+		queryTable.SelectFields = fields[key]
+
 		db := getDb(queryTable.Name)
 		if db == nil {
 			return nil, fmt.Errorf("db not found for %s", queryTable.Name)
@@ -115,7 +233,7 @@ func selectAction(stmt *sqlparser.Select) (any, error) {
 				Values: make(map[string]*models.QueryTable),
 			}
 			lastDb = db
-			tmpOrderMap.Set(key, queryTable)
+			tmpOrderMap.Set(qua, queryTable)
 			continue
 		}
 
@@ -127,10 +245,10 @@ func selectAction(stmt *sqlparser.Select) (any, error) {
 				Keys:   make([]string, 0),
 				Values: make(map[string]*models.QueryTable),
 			}
-			tmpOrderMap.Set(key, queryTable)
+			tmpOrderMap.Set(qua, queryTable)
 			continue
 		}
-		tmpOrderMap.Set(key, queryTable)
+		tmpOrderMap.Set(qua, queryTable)
 	}
 	queries = append(queries, tmpOrderMap)
 
@@ -143,58 +261,6 @@ func selectAction(stmt *sqlparser.Select) (any, error) {
 	}
 
 	return nil, nil
-
-	wheres := map[string]any{}
-	if stmt.Where != nil {
-		wheres = getColumnValuesFromWhere(stmt.Where.Expr)
-	}
-
-	fmt.Printf("Where %+v\n", wheres)
-
-	type SelectField struct {
-		Qualifier string
-		Field     string
-		As        string
-		Val       any
-	}
-
-	fields := []SelectField{}
-	for _, expr := range stmt.SelectExprs {
-		if expr, ok := expr.(*sqlparser.StarExpr); ok {
-			field := SelectField{
-				Qualifier: expr.TableName.Name.String(),
-				Field:     "",
-			}
-			fields = append(fields, field)
-			continue
-		}
-		if aliased, ok := expr.(*sqlparser.AliasedExpr); ok {
-			if val, ok := aliased.Expr.(*sqlparser.SQLVal); ok {
-				val, _ := utils.ParseValue(val)
-				field := SelectField{
-					Qualifier: "",
-					Field:     "SQLVal",
-					As:        aliased.As.String(),
-					Val:       val,
-				}
-				fields = append(fields, field)
-				continue
-			}
-
-			colName := aliased.Expr.(*sqlparser.ColName)
-			field := SelectField{
-				Qualifier: colName.Qualifier.Name.String(),
-				Field:     colName.Name.String(),
-				As:        aliased.As.String(),
-			}
-			fields = append(fields, field)
-			continue
-		}
-		fmt.Println("???", reflect.TypeOf(expr))
-	}
-
-	fmt.Printf("Fields: %+v\n", fields)
-
 	return nil, nil
 
 	// mainFields := map[string]string{}
