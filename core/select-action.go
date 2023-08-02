@@ -38,7 +38,7 @@ func parseTableExprs(expr sqlparser.TableExpr, tables *models.OrderMap[string, *
 	return nil
 }
 
-func selectPG(conn *sql.DB, tables *models.OrderMap[string, *models.QueryTable]) {
+func selectPG(conn *sql.DB, tables *models.OrderMap[string, *models.QueryTable], wheres []*models.Cond) {
 	froms := []string{}
 	selects := []string{}
 	for _, qualifier := range tables.Keys {
@@ -96,16 +96,57 @@ func selectPG(conn *sql.DB, tables *models.OrderMap[string, *models.QueryTable])
 		froms = append(froms, from)
 	}
 
+	queryParams := []any{}
+	whereQueries := []string{}
+	for _, cond := range wheres {
+		leftTable := tables.Get(cond.Left.Qualifier)
+		rightTable := tables.Get(cond.Right.Qualifier)
+		if leftTable == nil && cond.Left.Value == nil {
+			fmt.Println("Deps", cond)
+			continue
+		}
+		if rightTable == nil && cond.Right.Value == nil {
+			fmt.Println("Deps", cond)
+			continue
+		}
+		left := ""
+		if cond.Left.Value != nil {
+			queryParams = append(queryParams, cond.Left.Value)
+			left = fmt.Sprintf("$%d", len(queryParams))
+		} else {
+			left = fmt.Sprintf("%s.%s", cond.Left.Qualifier, cond.Left.Field)
+		}
+		right := ""
+		if cond.Right.Value != nil {
+			queryParams = append(queryParams, cond.Right.Value)
+			right = fmt.Sprintf("$%d", len(queryParams))
+		} else {
+			right = fmt.Sprintf("%s.%s", cond.Right.Qualifier, cond.Right.Field)
+		}
+
+		query := fmt.Sprintf("%s %s %s", left, cond.Op, right)
+		whereQueries = append(whereQueries, query)
+	}
+
 	query := fmt.Sprintf(`
 		SELECT
 			%s
 		FROM
 			%s
-	`, strings.Join(selects, ","), strings.Join(froms, " "))
+		%s
+	`,
+		strings.Join(selects, ","),
+		strings.Join(froms, " "),
+		utils.Ternary(
+			len(whereQueries) == 0,
+			"",
+			fmt.Sprintf("WHERE %s", strings.Join(whereQueries, " AND ")),
+		),
+	)
 
 	fmt.Println("QUERY:", query)
 
-	rows, err := conn.Query(query)
+	rows, err := conn.Query(query, queryParams...)
 	if err != nil {
 		fmt.Println("Err", err)
 		return
@@ -187,12 +228,10 @@ func selectAction(stmt *sqlparser.Select) (any, error) {
 
 	fmt.Printf("Fields: %+v\n", fields)
 
-	wheres := map[string]any{}
+	var wheres []*models.Cond
 	if stmt.Where != nil {
-		wheres = getColumnValuesFromWhere(stmt.Where.Expr)
+		wheres = utils.ParseJoinCondition(stmt.Where.Expr)
 	}
-
-	fmt.Printf("Where %+v\n", wheres)
 
 	queryTables := models.OrderMap[string, *models.QueryTable]{
 		Keys:   []string{},
@@ -256,7 +295,7 @@ func selectAction(stmt *sqlparser.Select) (any, error) {
 		// fmt.Printf("Qu: %+v\n", query)
 		db := getDb(query.Get(query.Keys[0]).Name)
 		if db.Type == "PostgreSQL" {
-			selectPG(db.Conn.(*sql.DB), query)
+			selectPG(db.Conn.(*sql.DB), query, wheres)
 		}
 	}
 
