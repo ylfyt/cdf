@@ -85,8 +85,7 @@ func selectPG(conn *sql.DB, tables *models.OrderMap[string, *models.QueryTable],
 				from = fmt.Sprintf("%s %s %s %s", table.Join, table.Name, qualifier, utils.Ternary(len(conds) == 0, "", "ON "+strings.Join(conds, " AND ")))
 			}
 		}
-
-		if table.SelectFields != nil && len(table.SelectFields) == 0 {
+		if len(table.SelectFields) == 0 {
 			selects = append(selects, fmt.Sprintf("%s.*", qualifier))
 		}
 		for as, field := range table.SelectFields {
@@ -99,29 +98,38 @@ func selectPG(conn *sql.DB, tables *models.OrderMap[string, *models.QueryTable],
 	queryParams := []any{}
 	whereQueries := []string{}
 	for _, cond := range wheres {
-		leftTable := tables.Get(cond.Left.Qualifier)
-		rightTable := tables.Get(cond.Right.Qualifier)
-		if leftTable == nil && cond.Left.Value == nil {
-			fmt.Println("Deps", cond)
-			continue
-		}
-		if rightTable == nil && cond.Right.Value == nil {
-			fmt.Println("Deps", cond)
-			continue
-		}
 		left := ""
 		if cond.Left.Value != nil {
 			queryParams = append(queryParams, cond.Left.Value)
 			left = fmt.Sprintf("$%d", len(queryParams))
 		} else {
-			left = fmt.Sprintf("%s.%s", cond.Left.Qualifier, cond.Left.Field)
+			if cond.Left.Qualifier == "" {
+				left = cond.Left.Field
+			} else {
+				leftTable := tables.Get(cond.Left.Qualifier)
+				if leftTable == nil {
+					fmt.Println("Deps", cond)
+					continue
+				}
+				left = fmt.Sprintf("%s.%s", cond.Left.Qualifier, cond.Left.Field)
+			}
 		}
+
 		right := ""
 		if cond.Right.Value != nil {
 			queryParams = append(queryParams, cond.Right.Value)
 			right = fmt.Sprintf("$%d", len(queryParams))
 		} else {
-			right = fmt.Sprintf("%s.%s", cond.Right.Qualifier, cond.Right.Field)
+			if cond.Right.Qualifier == "" {
+				right = cond.Right.Field
+			} else {
+				rightTable := tables.Get(cond.Right.Qualifier)
+				if rightTable == nil {
+					fmt.Println("Deps", cond)
+					continue
+				}
+				right = fmt.Sprintf("%s.%s", cond.Right.Qualifier, cond.Right.Field)
+			}
 		}
 
 		query := fmt.Sprintf("%s %s %s", left, cond.Op, right)
