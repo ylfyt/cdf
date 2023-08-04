@@ -6,28 +6,22 @@
       "connectionString": "postgresql://postgres:postgres@localhost/coba?sslmode=disable",
       "tables": {
         "store": {
-          "auth:update|delete|create": {
-            "$store.user_id": "$jwt.user_id"
+          "auth:crud": {
+            "$user_id": "auth.user_id",
+            "auth.age": {
+              "$gte": 40
+            }
           },
           "name": "store",
           "fields": {
             "id": "int",
-            "user_id": "int",
+            "user_id": {
+              "type": "int",
+              "ref": "users.id"
+            },
             "name": "string",
             "description": "string",
-            "address": "string",
-            "user": {
-              "type": "$users",
-              "references": [
-                "$user_id->$users.id"
-              ]
-            },
-            "products": {
-              "type": "[$product]",
-              "references": [
-                "$id->$product.store_id"
-              ]
-            }
+            "address": "string"
           }
         },
         "users": {
@@ -39,7 +33,8 @@
             "gender": "string",
             "ip_address": "string",
             "password": {
-              "access": false
+              "type": "string",
+              "hide": true
             }
           }
         }
@@ -54,39 +49,30 @@
           "name": "product",
           "fields": {
             "id": "int",
-            "store_id": "int",
+            "store_id": {
+              "type": "int",
+              "ref": "store.id"
+            },
             "name": "string",
             "description": "string",
             "price": "int",
-            "category_id": "int",
+            "category_id": {
+              "type": "int",
+              "ref": "product_category.id"
+            },
             "created_at": "timestamp",
             "updated_at": "timestamp",
-            "deleted_at": "timestamp",
-            "store": {
-              "type": "$store",
-              "references": [
-                "$store_id->$store.id"
-              ]
-            },
-            "inventory": {
-              "type": "$product_inventory",
-              "references": [
-                "$id->$product_inventory.id"
-              ]
-            },
-            "category": {
-              "type": "$product_category",
-              "references": [
-                "$category_id->$product_category.id"
-              ]
-            }
+            "deleted_at": "timestamp"
           }
         },
         "product_inventory": {
           "name": "product_inventory",
           "fields": {
             "id": "int",
-            "product_id": "int",
+            "product_id": {
+              "type": "int",
+              "ref": "product.id"
+            },
             "quantity": "int",
             "created_at": "timestamp",
             "updated_at": "timestamp"
@@ -113,11 +99,14 @@
           "name": "orders",
           "fields": {
             "_id": "ObjectID",
-            "user_id": "int",
+            "user_id": {
+              "type": "int",
+              "ref": "users.id"
+            },
             "created_at": "timestamp",
             "updated_at": "timestamp",
             "items": {
-              "type": "[object]",
+              "type": "_object",
               "fields": {
                 "product_id": "int",
                 "quantity": "int",
