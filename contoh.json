@@ -1,0 +1,7 @@
+{
+  "id": "int",
+  "user_id": {"type": "int", "ref": "users.id"},
+  "name": "string",
+  "description": "string",
+  "address": "string"
+}

@@ -18,9 +18,11 @@ var UPDATE_QUERY = `UPDATE orders SET user_id = 'example@gmail.com' WHERE _id = 
 
 var SIMPLE_SELECT = `
 	SELECT
-		s.*
+		*
 	FROM
-		store s join users u on s.user_id = u.id 
+		store
+	where 
+		id = 1
 `
 
 var SELECT_QUERY = `
@@ -31,9 +33,20 @@ var SELECT_QUERY = `
 	FROM 
 		store s
 		JOIN users u ON s.user_id = u.id
-		LEFT JOIN orders o ON o.user_id = u.id AND 1000 > p.created_at and query.async = 1 
+		LEFT JOIN orders o ON o.user_id = u.id
 	WHERE
-		s.age = 30
+		s.id = 3
+`
+
+var SELECT_QUERY2 = `
+	SELECT 
+		*
+	FROM 
+		store s
+		JOIN users u ON u.id = s.user_id
+		LEFT JOIN product p ON p.store_id = s.id
+	WHERE
+		u.id = 3
 `
 
 func main() {
@@ -55,7 +68,7 @@ func main() {
 
 	core.Start(&schema)
 
-	stmt, err := sqlparser.Parse(SELECT_QUERY)
+	stmt, err := sqlparser.Parse(SELECT_QUERY2)
 	if err != nil {
 		fmt.Println("err", err)
 		return

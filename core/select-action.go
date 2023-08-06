@@ -38,10 +38,33 @@ func parseTableExprs(expr sqlparser.TableExpr, tables *models.OrderMap[string, *
 	return nil
 }
 
-func selectPG(conn *sql.DB, tables *models.OrderMap[string, *models.QueryTable], wheres []*models.Cond) {
+func parseDependencyConds(queries []*models.OrderMap[string, *models.QueryTable]) [][]*models.Cond {
+	deps := [][]*models.Cond{}
+	for _, query := range queries {
+		dep := []*models.Cond{}
+		for _, key := range query.Keys {
+			table := query.Get(key)
+			newConds := []*models.Cond{}
+			for _, cond := range table.Conds {
+				left := query.Get(cond.Left.Qualifier)
+				right := query.Get(cond.Right.Qualifier)
+				if left == nil || right == nil {
+					dep = append(dep, cond)
+					continue
+				}
+				newConds = append(newConds, cond)
+			}
+			table.Conds = newConds
+		}
+		deps = append(deps, dep)
+	}
+	return deps
+}
+
+func selectPG(conn *sql.DB, tables *models.OrderMap[string, *models.QueryTable], wheres []*models.Cond) ([]map[string]any, error) {
 	froms := []string{}
 	selects := []string{}
-	for _, qualifier := range tables.Keys {
+	for idx, qualifier := range tables.Keys {
 		table := tables.Get(qualifier)
 		conds := []string{}
 		for _, cond := range table.Conds {
@@ -49,6 +72,12 @@ func selectPG(conn *sql.DB, tables *models.OrderMap[string, *models.QueryTable],
 			if cond.Left.Value != nil {
 				left += fmt.Sprint(cond.Left.Value)
 			} else {
+				_, exist := tables.GetExist(cond.Left.Qualifier)
+				if !exist {
+					// TODO: Deps
+					fmt.Println("Deps: ", cond, table)
+					continue
+				}
 				if cond.Left.Qualifier != "" {
 					left += cond.Left.Qualifier + "." + cond.Left.Field
 				} else {
@@ -60,6 +89,12 @@ func selectPG(conn *sql.DB, tables *models.OrderMap[string, *models.QueryTable],
 			if cond.Right.Value != nil {
 				right += fmt.Sprint(cond.Right.Value)
 			} else {
+				_, exist := tables.GetExist(cond.Right.Qualifier)
+				if !exist {
+					// TODO: Deps
+					fmt.Println("Deps: ", cond, table)
+					continue
+				}
 				if cond.Right.Qualifier != "" {
 					right += cond.Right.Qualifier + "." + cond.Right.Field
 				} else {
@@ -72,7 +107,7 @@ func selectPG(conn *sql.DB, tables *models.OrderMap[string, *models.QueryTable],
 		}
 
 		from := ""
-		if table.Join == "" {
+		if table.Join == "" || idx == 0 {
 			if qualifier == table.Name {
 				from = qualifier
 			} else {
@@ -157,12 +192,12 @@ func selectPG(conn *sql.DB, tables *models.OrderMap[string, *models.QueryTable],
 	rows, err := conn.Query(query, queryParams...)
 	if err != nil {
 		fmt.Println("Err", err)
-		return
+		return nil, err
 	}
 	columns, err := rows.Columns()
 	if err != nil {
 		fmt.Println("Err", err)
-		return
+		return nil, err
 	}
 
 	numOfColumns := len(columns)
@@ -178,7 +213,7 @@ func selectPG(conn *sql.DB, tables *models.OrderMap[string, *models.QueryTable],
 		err := rows.Scan(scansPtr...)
 		if err != nil {
 			fmt.Println("Err", err)
-			return
+			return nil, err
 		}
 		row := make(map[string]any)
 		for i, v := range columns {
@@ -187,16 +222,16 @@ func selectPG(conn *sql.DB, tables *models.OrderMap[string, *models.QueryTable],
 		result = append(result, row)
 	}
 
-	fmt.Println("Data:", result)
+	return result, nil
 }
 
 func selectAction(stmt *sqlparser.Select) (any, error) {
-	type SelectField struct {
-		Qualifier string
-		Field     string
-		As        string
-		Val       any
-	}
+	// type SelectField struct {
+	// 	Qualifier string
+	// 	Field     string
+	// 	As        string
+	// 	Val       any
+	// }
 
 	// qualifier -> as -> field
 	fields := map[string]map[string]any{}
@@ -233,8 +268,6 @@ func selectAction(stmt *sqlparser.Select) (any, error) {
 		}
 		fmt.Println("???", reflect.TypeOf(expr))
 	}
-
-	fmt.Printf("Fields: %+v\n", fields)
 
 	var wheres []*models.Cond
 	if stmt.Where != nil {
@@ -299,15 +332,22 @@ func selectAction(stmt *sqlparser.Select) (any, error) {
 	}
 	queries = append(queries, tmpOrderMap)
 
+	deps := parseDependencyConds(queries)	
+	_ = deps
+
+	result := [][]map[string]any{}
 	for _, query := range queries {
-		// fmt.Printf("Qu: %+v\n", query)
 		db := getDb(query.Get(query.Keys[0]).Name)
 		if db.Type == "PostgreSQL" {
-			selectPG(db.Conn.(*sql.DB), query, wheres)
+			res, err := selectPG(db.Conn.(*sql.DB), query, wheres)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, res)
 		}
 	}
+	fmt.Printf("Result: %+v\n", result)
 
-	return nil, nil
 	return nil, nil
 
 	// mainFields := map[string]string{}
