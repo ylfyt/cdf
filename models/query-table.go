@@ -5,5 +5,4 @@ type QueryTable struct {
 	Name         string
 	Join         string
 	SelectFields map[string]any
-	Result       []map[string]any
 }

@@ -11,7 +11,7 @@ import (
 	"github.com/xwb1989/sqlparser"
 )
 
-func parseTableExprs(expr sqlparser.TableExpr, tables *models.OrderMap[string, *models.QueryTable], conds []*models.Cond, join string) error {
+func parseTableExprs(expr sqlparser.TableExpr, tables *models.OrderMap[string, *models.QueryTable], conds []*models.Cond, join string) {
 	if expr, ok := expr.(*sqlparser.AliasedTableExpr); ok {
 		as := expr.As.String()
 		table := expr.Expr.(sqlparser.TableName)
@@ -26,7 +26,7 @@ func parseTableExprs(expr sqlparser.TableExpr, tables *models.OrderMap[string, *
 			Join:  join,
 		}
 		tables.Set(as, &tmp)
-		return nil
+		return
 	}
 
 	if expr, ok := expr.(*sqlparser.JoinTableExpr); ok {
@@ -34,8 +34,6 @@ func parseTableExprs(expr sqlparser.TableExpr, tables *models.OrderMap[string, *
 		parseTableExprs(expr.LeftExpr, tables, nil, "")
 		parseTableExprs(expr.RightExpr, tables, res, expr.Join)
 	}
-
-	return nil
 }
 
 func parseDependencyConds(queries []*models.OrderMap[string, *models.QueryTable]) [][]*models.Cond {
@@ -72,12 +70,6 @@ func selectPG(conn *sql.DB, tables *models.OrderMap[string, *models.QueryTable],
 			if cond.Left.Value != nil {
 				left += fmt.Sprint(cond.Left.Value)
 			} else {
-				_, exist := tables.GetExist(cond.Left.Qualifier)
-				if !exist {
-					// TODO: Deps
-					fmt.Println("Deps: ", cond, table)
-					continue
-				}
 				if cond.Left.Qualifier != "" {
 					left += cond.Left.Qualifier + "." + cond.Left.Field
 				} else {
@@ -89,12 +81,6 @@ func selectPG(conn *sql.DB, tables *models.OrderMap[string, *models.QueryTable],
 			if cond.Right.Value != nil {
 				right += fmt.Sprint(cond.Right.Value)
 			} else {
-				_, exist := tables.GetExist(cond.Right.Qualifier)
-				if !exist {
-					// TODO: Deps
-					fmt.Println("Deps: ", cond, table)
-					continue
-				}
 				if cond.Right.Qualifier != "" {
 					right += cond.Right.Qualifier + "." + cond.Right.Field
 				} else {
@@ -141,11 +127,6 @@ func selectPG(conn *sql.DB, tables *models.OrderMap[string, *models.QueryTable],
 			if cond.Left.Qualifier == "" {
 				left = cond.Left.Field
 			} else {
-				leftTable := tables.Get(cond.Left.Qualifier)
-				if leftTable == nil {
-					fmt.Println("Deps", cond)
-					continue
-				}
 				left = fmt.Sprintf("%s.%s", cond.Left.Qualifier, cond.Left.Field)
 			}
 		}
@@ -158,11 +139,6 @@ func selectPG(conn *sql.DB, tables *models.OrderMap[string, *models.QueryTable],
 			if cond.Right.Qualifier == "" {
 				right = cond.Right.Field
 			} else {
-				rightTable := tables.Get(cond.Right.Qualifier)
-				if rightTable == nil {
-					fmt.Println("Deps", cond)
-					continue
-				}
 				right = fmt.Sprintf("%s.%s", cond.Right.Qualifier, cond.Right.Field)
 			}
 		}
@@ -189,91 +165,43 @@ func selectPG(conn *sql.DB, tables *models.OrderMap[string, *models.QueryTable],
 
 	fmt.Println("QUERY:", query)
 
-	rows, err := conn.Query(query, queryParams...)
-	if err != nil {
-		fmt.Println("Err", err)
-		return nil, err
-	}
-	columns, err := rows.Columns()
-	if err != nil {
-		fmt.Println("Err", err)
-		return nil, err
-	}
-
-	numOfColumns := len(columns)
-	scans := make([]any, numOfColumns)
-	scansPtr := make([]any, numOfColumns)
-
-	for i := range scans {
-		scansPtr[i] = &scans[i]
-	}
-
-	var result []map[string]any
-	for rows.Next() {
-		err := rows.Scan(scansPtr...)
-		if err != nil {
-			fmt.Println("Err", err)
-			return nil, err
-		}
-		row := make(map[string]any)
-		for i, v := range columns {
-			row[v] = scans[i]
-		}
-		result = append(result, row)
-	}
-
-	return result, nil
-}
-
-func selectAction(stmt *sqlparser.Select) (any, error) {
-	// type SelectField struct {
-	// 	Qualifier string
-	// 	Field     string
-	// 	As        string
-	// 	Val       any
+	// rows, err := conn.Query(query, queryParams...)
+	// if err != nil {
+	// 	fmt.Println("Err", err)
+	// 	return nil, err
+	// }
+	// columns, err := rows.Columns()
+	// if err != nil {
+	// 	fmt.Println("Err", err)
+	// 	return nil, err
 	// }
 
-	// qualifier -> as -> field
-	fields := map[string]map[string]any{}
-	// fields := []SelectField{}
-	for _, expr := range stmt.SelectExprs {
-		if expr, ok := expr.(*sqlparser.StarExpr); ok {
-			qua := expr.TableName.Name.String()
-			if fields[qua] == nil {
-				fields[qua] = make(map[string]any)
-			}
-			continue
-		}
-		if aliased, ok := expr.(*sqlparser.AliasedExpr); ok {
-			if val, ok := aliased.Expr.(*sqlparser.SQLVal); ok {
-				val, _ := utils.ParseValue(val)
-				if fields["=VALUE="] == nil {
-					fields["=VALUE="] = make(map[string]any)
-				}
-				fields["=VALUE="][aliased.As.String()] = val
-				continue
-			}
-			colName := aliased.Expr.(*sqlparser.ColName)
-			field := colName.Name.String()
-			qua := colName.Qualifier.Name.String()
-			as := aliased.As.String()
-			if as == "" {
-				as = field
-			}
-			if fields[qua] == nil {
-				fields[qua] = make(map[string]any)
-			}
-			fields[qua][as] = field
-			continue
-		}
-		fmt.Println("???", reflect.TypeOf(expr))
-	}
+	// numOfColumns := len(columns)
+	// scans := make([]any, numOfColumns)
+	// scansPtr := make([]any, numOfColumns)
 
-	var wheres []*models.Cond
-	if stmt.Where != nil {
-		wheres = utils.ParseJoinCondition(stmt.Where.Expr)
-	}
+	// for i := range scans {
+	// 	scansPtr[i] = &scans[i]
+	// }
 
+	// var result []map[string]any
+	// for rows.Next() {
+	// 	err := rows.Scan(scansPtr...)
+	// 	if err != nil {
+	// 		fmt.Println("Err", err)
+	// 		return nil, err
+	// 	}
+	// 	row := make(map[string]any)
+	// 	for i, v := range columns {
+	// 		row[v] = scans[i]
+	// 	}
+	// 	result = append(result, row)
+	// }
+
+	return nil, nil
+}
+
+func parseFrom(stmt *sqlparser.Select, fields map[string]map[string]any) ([]*models.OrderMap[string, *models.QueryTable], error) {
 	queryTables := models.OrderMap[string, *models.QueryTable]{
 		Keys:   []string{},
 		Values: make(map[string]*models.QueryTable),
@@ -331,15 +259,116 @@ func selectAction(stmt *sqlparser.Select) (any, error) {
 		tmpOrderMap.Set(qua, queryTable)
 	}
 	queries = append(queries, tmpOrderMap)
+	return queries, nil
+}
 
-	deps := parseDependencyConds(queries)	
+// qualifier -> as -> field
+func parseSelectField(stmt *sqlparser.Select) map[string]map[string]any {
+	fields := map[string]map[string]any{}
+	for _, expr := range stmt.SelectExprs {
+		if expr, ok := expr.(*sqlparser.StarExpr); ok {
+			qua := expr.TableName.Name.String()
+			if fields[qua] == nil {
+				fields[qua] = make(map[string]any)
+			}
+			continue
+		}
+		if aliased, ok := expr.(*sqlparser.AliasedExpr); ok {
+			if val, ok := aliased.Expr.(*sqlparser.SQLVal); ok {
+				val, _ := utils.ParseValue(val)
+				if fields["=VALUE="] == nil {
+					fields["=VALUE="] = make(map[string]any)
+				}
+				fields["=VALUE="][aliased.As.String()] = val
+				continue
+			}
+			colName := aliased.Expr.(*sqlparser.ColName)
+			field := colName.Name.String()
+			qua := colName.Qualifier.Name.String()
+			as := aliased.As.String()
+			if as == "" {
+				as = field
+			}
+			if fields[qua] == nil {
+				fields[qua] = make(map[string]any)
+			}
+			fields[qua][as] = field
+			continue
+		}
+		fmt.Println("???", reflect.TypeOf(expr))
+	}
+
+	return fields
+}
+
+func getIdxQualifierInQuery(queries []*models.OrderMap[string, *models.QueryTable], qua string) int {
+	for i, query := range queries {
+		_, exist := query.GetExist(qua)
+		if exist {
+			return i
+		}
+	}
+	return -1
+}
+
+func applyWheres(queries []*models.OrderMap[string, *models.QueryTable], wheres []*models.Cond) ([][]*models.Cond, []*models.Cond) {
+	queryWheres := make([][]*models.Cond, len(queries))
+	deps := []*models.Cond{}
+	for _, cond := range wheres {
+		if cond.Left.Value != nil {
+			idx := getIdxQualifierInQuery(queries, cond.Right.Qualifier)
+			if idx != -1 {
+				queryWheres[idx] = append(queryWheres[idx], cond)
+			} else {
+				deps = append(deps, cond)
+			}
+			continue
+		}
+		if cond.Right.Value != nil {
+			idx := getIdxQualifierInQuery(queries, cond.Left.Qualifier)
+			if idx != -1 {
+				queryWheres[idx] = append(queryWheres[idx], cond)
+			} else {
+				deps = append(deps, cond)
+			}
+			continue
+		}
+
+		leftIdx := getIdxQualifierInQuery(queries, cond.Left.Qualifier)
+		rightIdx := getIdxQualifierInQuery(queries, cond.Right.Qualifier)
+		if leftIdx == -1 || rightIdx == -1 || (leftIdx != rightIdx) {
+			deps = append(deps, cond)
+			continue
+		}
+		queryWheres[leftIdx] = append(queryWheres[leftIdx], cond)
+	}
+	return queryWheres, deps
+}
+
+func selectAction(stmt *sqlparser.Select) (any, error) {
+	fields := parseSelectField(stmt)
+
+	var wheres []*models.Cond
+	if stmt.Where != nil {
+		wheres = utils.ParseJoinCondition(stmt.Where.Expr)
+	}
+
+	queries, err := parseFrom(stmt, fields)
+	if err != nil {
+		return nil, err
+	}
+
+	deps := parseDependencyConds(queries)
 	_ = deps
 
+	queryWheres, depWheres := applyWheres(queries, wheres)
+	_ = depWheres
+
 	result := [][]map[string]any{}
-	for _, query := range queries {
+	for idx, query := range queries {
 		db := getDb(query.Get(query.Keys[0]).Name)
 		if db.Type == "PostgreSQL" {
-			res, err := selectPG(db.Conn.(*sql.DB), query, wheres)
+			res, err := selectPG(db.Conn.(*sql.DB), query, queryWheres[idx])
 			if err != nil {
 				return nil, err
 			}
@@ -347,26 +376,6 @@ func selectAction(stmt *sqlparser.Select) (any, error) {
 		}
 	}
 	fmt.Printf("Result: %+v\n", result)
-
-	return nil, nil
-
-	// mainFields := map[string]string{}
-	// fields := map[string]map[string]string{}
-	for _, selectExpr := range stmt.SelectExprs {
-		if expr, ok := selectExpr.(*sqlparser.AliasedExpr); ok {
-			fmt.Printf("Data: %+v\n", expr)
-
-			continue
-		}
-
-		if expr, ok := selectExpr.(*sqlparser.StarExpr); ok {
-			fmt.Printf("Data: %+v\n", expr)
-			continue
-		}
-
-		fmt.Println("???", selectExpr)
-		return nil, fmt.Errorf("unsupported expr %+v", selectExpr)
-	}
 
 	return nil, nil
 }

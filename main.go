@@ -47,6 +47,8 @@ var SELECT_QUERY2 = `
 		LEFT JOIN product p ON p.store_id = s.id
 	WHERE
 		u.id = 3
+		AND p.type = 'TEA'
+		AND s.idx = p.idx
 `
 
 func main() {
