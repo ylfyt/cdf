@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"io"
 	"os"
-
 )
 
 var INSERT_QUERY = `INSERT INTO orders (name, email) values ('Yudi', 'yudi@gmail.com')`
@@ -37,9 +36,9 @@ var SELECT_QUERY2 = `
 	SELECT 
 		*
 	FROM 
-		users u
-		JOIN store s ON u.id = s.user_id
-		JOIN users u2 ON s.user_id = u2.id
+		store s	
+		JOIN product p ON p.store_id = s.id
+		
 `
 
 func main() {

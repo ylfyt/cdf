@@ -3,6 +3,7 @@ package core
 import (
 	"cdf/models"
 	"cdf/utils"
+	"context"
 	"database/sql"
 	"fmt"
 	"reflect"
@@ -10,6 +11,8 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/xwb1989/sqlparser"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func parseTableExprs(expr sqlparser.TableExpr, tables *models.OrderMap[string, *models.QueryTable], conds []*models.Cond, join string) {
@@ -85,6 +88,7 @@ func selectPG(conn *sql.DB, table *models.QueryTable, wheres []*models.Cond) ([]
 			// queryParams = append(queryParams, parseArg(cond.Right.Value))
 			// query = fmt.Sprintf("$%d %s $%d", len(queryParams)-1, cond.Op, len(queryParams))
 		} else if cond.Left.Value != nil {
+			// TODO: Check if deps or not
 			if vals, ok := cond.Left.Value.([]any); ok {
 				if len(vals) == 0 {
 					query = "FALSE"
@@ -177,6 +181,58 @@ func selectPG(conn *sql.DB, table *models.QueryTable, wheres []*models.Cond) ([]
 			row[v] = scans[i]
 		}
 		result = append(result, row)
+	}
+
+	return result, nil
+}
+
+func parseOp(op string) string {
+	op = strings.ToLower(op)
+	switch op {
+	case "=":
+		return "$eq"
+	case ">":
+		return "$gt"
+	case ">=":
+		return "$gte"
+	case "<":
+		return "$lt"
+	case "<=":
+		return "$lte"
+	case "in":
+		return "$in"
+	}
+	return ""
+}
+
+func selectMongo(conn *mongo.Database, table *models.QueryTable, wheres []*models.Cond) ([]map[string]any, error) {
+	coll := conn.Collection(table.Name)
+
+	filter := map[string]any{}
+	for _, cond := range wheres {
+		if cond.Left.Value != nil && cond.Right.Value != nil {
+			//TODO ??
+			continue
+		}
+		op := parseOp(cond.Op)
+		field := cond.Left.Field
+		val := cond.Right.Value
+		filter[field] = bson.M{
+			op: val,
+		}
+	}
+
+	cur, err := coll.Find(context.TODO(), filter)
+	if err != nil {
+		return nil, err
+	}
+	result := []map[string]any{}
+	for cur.Next(context.TODO()) {
+		var val bson.M
+		if err := cur.Decode(&val); err != nil {
+			return nil, err
+		}
+		result = append(result, val)
 	}
 
 	return result, nil
@@ -315,7 +371,7 @@ func applyDepWheres(depConds []*models.Cond, qua string, wheres *[]*models.Cond,
 			}
 			*wheres = append(*wheres, &models.Cond{
 				Left: cond.Left,
-				Op:   cond.Op,
+				Op:   "IN",
 				Right: models.CondInfo{
 					Value: values,
 				},
@@ -332,7 +388,7 @@ func applyDepWheres(depConds []*models.Cond, qua string, wheres *[]*models.Cond,
 				Left: models.CondInfo{
 					Value: values,
 				},
-				Op:    cond.Op,
+				Op:    "IN",
 				Right: cond.Right,
 			})
 			continue
@@ -391,6 +447,13 @@ func selectAction(stmt *sqlparser.Select) (any, error) {
 		db := getDb(table.Name)
 		if db.Type == "PostgreSQL" {
 			res, err := selectPG(db.Conn.(*sql.DB), table, wheres)
+			if err != nil {
+				return nil, err
+			}
+			raw[qua] = res
+		}
+		if db.Type == "MongoDB" {
+			res, err := selectMongo(db.Conn.(*mongo.Database), table, wheres)
 			if err != nil {
 				return nil, err
 			}
