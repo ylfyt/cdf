@@ -21,8 +21,6 @@ var SIMPLE_SELECT = `
 		*
 	FROM
 		store
-	where 
-		id = 1
 `
 
 var SELECT_QUERY = `
@@ -46,9 +44,7 @@ var SELECT_QUERY2 = `
 		JOIN users u ON u.id = s.user_id
 		LEFT JOIN product p ON p.store_id = s.id
 	WHERE
-		u.id = 3
-		AND p.type = 'TEA'
-		AND s.idx = p.idx
+		u.id  3
 `
 
 func main() {
@@ -70,7 +66,7 @@ func main() {
 
 	core.Start(&schema)
 
-	stmt, err := sqlparser.Parse(SELECT_QUERY2)
+	stmt, err := sqlparser.Parse(SELECT_QUERY)
 	if err != nil {
 		fmt.Println("err", err)
 		return

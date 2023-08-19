@@ -41,9 +41,9 @@
       }
     },
     "db_product": {
-      "type": "PostgreSQL",
+      "type": "MongoDB",
       "name": "db_product",
-      "connectionString": "postgresql://postgres:postgres@localhost/db_product?sslmode=disable",
+      "connectionString": "mongodb://localhost:27017/db_product",
       "tables": {
         "product": {
           "name": "product",
