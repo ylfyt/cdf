@@ -3,16 +3,9 @@ package core
 import (
 	"cdf/models"
 	"cdf/utils"
-	"context"
-	"database/sql"
 	"fmt"
-	"reflect"
-	"strings"
-
-	"github.com/lib/pq"
 	"github.com/xwb1989/sqlparser"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
+	"reflect"
 )
 
 func parseTableExprs(expr sqlparser.TableExpr, tables *models.OrderMap[string, *models.QueryTable], conds []*models.Cond, join string) {
@@ -63,182 +56,7 @@ func parseDependencyConds(query *models.OrderMap[string, *models.QueryTable]) er
 	return nil
 }
 
-func parseArg(arg any) any {
-	if reflect.TypeOf(arg).Kind() == reflect.Array {
-		return pq.Array(arg)
-	}
-	return arg
-}
-
-func selectPG(conn *sql.DB, table *models.QueryTable, wheres []*models.Cond) ([]map[string]any, error) {
-	selects := []string{}
-	if len(table.SelectFields) == 0 {
-		selects = append(selects, "*")
-	}
-	for as, field := range table.SelectFields {
-		selects = append(selects, fmt.Sprintf("%s AS %s", field, as))
-	}
-
-	queryParams := []any{}
-	whereQueries := []string{}
-	for _, cond := range wheres {
-		query := ""
-		if cond.Left.Value != nil && cond.Right.Value != nil {
-			// queryParams = append(queryParams, parseArg(cond.Left.Value))
-			// queryParams = append(queryParams, parseArg(cond.Right.Value))
-			// query = fmt.Sprintf("$%d %s $%d", len(queryParams)-1, cond.Op, len(queryParams))
-		} else if cond.Left.Value != nil {
-			// TODO: Check if deps or not
-			if vals, ok := cond.Left.Value.([]any); ok {
-				if len(vals) == 0 {
-					query = "FALSE"
-				} else {
-					right := ""
-					for idx, val := range vals {
-						queryParams = append(queryParams, val)
-						right += fmt.Sprintf("$%d", len(queryParams))
-						if idx != len(vals)-1 {
-							right += ","
-						}
-					}
-					query = fmt.Sprintf("%s IN (%s)", cond.Right.Field, right)
-				}
-			} else {
-				queryParams = append(queryParams, cond.Left.Value)
-				query = fmt.Sprintf("%s %s $%d", cond.Right.Field, cond.Op, len(queryParams))
-			}
-		} else if cond.Right.Value != nil {
-			if vals, ok := cond.Right.Value.([]any); ok {
-				if len(vals) == 0 {
-					query = "FALSE"
-				} else {
-					right := ""
-					for idx, val := range vals {
-						queryParams = append(queryParams, val)
-						right += fmt.Sprintf("$%d", len(queryParams))
-						if idx != len(vals)-1 {
-							right += ","
-						}
-					}
-					query = fmt.Sprintf("%s IN (%s)", cond.Left.Field, right)
-				}
-			} else {
-				queryParams = append(queryParams, cond.Right.Value)
-				query = fmt.Sprintf("%s %s $%d", cond.Left.Field, cond.Op, len(queryParams))
-			}
-		} else {
-			query = fmt.Sprintf("%s %s %s", cond.Left.Field, cond.Op, cond.Right.Field)
-		}
-		whereQueries = append(whereQueries, query)
-	}
-
-	query := fmt.Sprintf(`
-		SELECT
-			%s
-		FROM
-			%s
-		%s
-	`,
-		strings.Join(selects, ","),
-		table.Name,
-		utils.Ternary(
-			len(whereQueries) == 0,
-			"",
-			fmt.Sprintf("WHERE %s", strings.Join(whereQueries, " AND ")),
-		),
-	)
-
-	fmt.Println()
-	fmt.Printf("==QUERY==: %+v\n", query)
-	fmt.Println()
-
-	rows, err := conn.Query(query, queryParams...)
-	if err != nil {
-		return nil, err
-	}
-	columns, err := rows.Columns()
-	if err != nil {
-		return nil, err
-	}
-
-	numOfColumns := len(columns)
-	scans := make([]any, numOfColumns)
-	scansPtr := make([]any, numOfColumns)
-
-	for i := range scans {
-		scansPtr[i] = &scans[i]
-	}
-
-	var result []map[string]any
-	for rows.Next() {
-		err := rows.Scan(scansPtr...)
-		if err != nil {
-			fmt.Println("Err", err)
-			return nil, err
-		}
-		row := make(map[string]any)
-		for i, v := range columns {
-			row[v] = scans[i]
-		}
-		result = append(result, row)
-	}
-
-	return result, nil
-}
-
-func parseOp(op string) string {
-	op = strings.ToLower(op)
-	switch op {
-	case "=":
-		return "$eq"
-	case ">":
-		return "$gt"
-	case ">=":
-		return "$gte"
-	case "<":
-		return "$lt"
-	case "<=":
-		return "$lte"
-	case "in":
-		return "$in"
-	}
-	return ""
-}
-
-func selectMongo(conn *mongo.Database, table *models.QueryTable, wheres []*models.Cond) ([]map[string]any, error) {
-	coll := conn.Collection(table.Name)
-
-	filter := map[string]any{}
-	for _, cond := range wheres {
-		if cond.Left.Value != nil && cond.Right.Value != nil {
-			//TODO ??
-			continue
-		}
-		op := parseOp(cond.Op)
-		field := cond.Left.Field
-		val := cond.Right.Value
-		filter[field] = bson.M{
-			op: val,
-		}
-	}
-
-	cur, err := coll.Find(context.TODO(), filter)
-	if err != nil {
-		return nil, err
-	}
-	result := []map[string]any{}
-	for cur.Next(context.TODO()) {
-		var val bson.M
-		if err := cur.Decode(&val); err != nil {
-			return nil, err
-		}
-		result = append(result, val)
-	}
-
-	return result, nil
-}
-
-func parseFrom(stmt *sqlparser.Select, fields map[string]map[string]any) (*models.OrderMap[string, *models.QueryTable], error) {
+func parseFrom(stmt *sqlparser.Select) (*models.OrderMap[string, *models.QueryTable], error) {
 	queryTables := models.OrderMap[string, *models.QueryTable]{
 		Keys:   []string{},
 		Values: make(map[string]*models.QueryTable),
@@ -414,13 +232,14 @@ func buildKey(table *models.QueryTable, qua string, value map[string]any) string
 
 func selectAction(stmt *sqlparser.Select) (any, error) {
 	fields := parseSelectField(stmt)
+	_ = fields
 
 	var wheres []*models.Cond
 	if stmt.Where != nil {
 		wheres = utils.ParseJoinCondition(stmt.Where.Expr)
 	}
 
-	query, err := parseFrom(stmt, fields)
+	query, err := parseFrom(stmt)
 	if err != nil {
 		return nil, err
 	}
@@ -445,20 +264,15 @@ func selectAction(stmt *sqlparser.Select) (any, error) {
 		applyDepWheres(table.DepConds, qua, &wheres, raw)
 
 		db := getDb(table.Name)
-		if db.Type == "PostgreSQL" {
-			res, err := selectPG(db.Conn.(*sql.DB), table, wheres)
-			if err != nil {
-				return nil, err
-			}
-			raw[qua] = res
+		if db == nil {
+			return nil, fmt.Errorf("db not found for %s", table.Name)
 		}
-		if db.Type == "MongoDB" {
-			res, err := selectMongo(db.Conn.(*mongo.Database), table, wheres)
-			if err != nil {
-				return nil, err
-			}
-			raw[qua] = res
+		driver := drivers[db.Type]
+		res, err := driver.read(db.Conn, table, wheres)
+		if err != nil {
+			return nil, err
 		}
+		raw[qua] = res
 	}
 
 	for i := 1; i < len(query.Keys); i++ {
