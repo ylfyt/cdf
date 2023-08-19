@@ -341,6 +341,21 @@ func applyDepWheres(depConds []*models.Cond, qua string, wheres *[]*models.Cond,
 	}
 }
 
+func buildKey(table *models.QueryTable, qua string, value map[string]any) string {
+	key := ""
+	for _, cond := range table.DepConds {
+		if cond.Left.Qualifier == qua {
+			fieldValue := value[cond.Left.Field]
+			key += fmt.Sprint(fieldValue) + "_"
+		} else if cond.Right.Qualifier == qua {
+			fieldValue := value[cond.Right.Field]
+			key += fmt.Sprint(fieldValue) + "_"
+		}
+	}
+
+	return key
+}
+
 func selectAction(stmt *sqlparser.Select) (any, error) {
 	fields := parseSelectField(stmt)
 
@@ -349,24 +364,24 @@ func selectAction(stmt *sqlparser.Select) (any, error) {
 		wheres = utils.ParseJoinCondition(stmt.Where.Expr)
 	}
 
-	queries, err := parseFrom(stmt, fields)
+	query, err := parseFrom(stmt, fields)
 	if err != nil {
 		return nil, err
 	}
 
-	err = parseDependencyConds(queries)
+	err = parseDependencyConds(query)
 	if err != nil {
 		return nil, err
 	}
-	err = applyWheres(queries, wheres)
+	err = applyWheres(query, wheres)
 	if err != nil {
 		return nil, err
 	}
 
 	raw := map[string][]map[string]any{}
 
-	for _, qua := range queries.Keys {
-		table := queries.Get(qua)
+	for _, qua := range query.Keys {
+		table := query.Get(qua)
 		// Parse db wheres
 		wheres := []*models.Cond{}
 		wheres = append(wheres, table.Conds...)
@@ -383,26 +398,27 @@ func selectAction(stmt *sqlparser.Select) (any, error) {
 		}
 	}
 
-	fmt.Printf("Data: %+v\n", raw)
+	for i := 1; i < len(query.Keys); i++ {
+		qua := query.Keys[i]
+		table := query.Get(qua)
+		result := raw[qua]
+		joinMap := map[string][]any{}
+		for _, val := range result {
+			key := buildKey(table, qua, val)
+			if joinMap[key] == nil {
+				joinMap[key] = make([]any, 0)
+			}
+			joinMap[key] = append(joinMap[key], val)
+		}
+		targetQua := query.Keys[i-1]
+		target := raw[targetQua]
+		for _, val := range target {
+			key := buildKey(table, targetQua, val)
+			join := joinMap[key]
+			// TODO: Check join type
+			val[table.Name] = join
+		}
+	}
 
-	// result := [][]map[string]any{}
-	// for idx, query := range queries {
-	// 	db := getDb(query.Get(query.Keys[0]).Name)
-	// 	if db.Type == "PostgreSQL" {
-	// 		res, err := selectPG(db.Conn.(*sql.DB), query, queryWheres[idx])
-	// 		if err != nil {
-	// 			return nil, err
-	// 		}
-	// 		result = append(result, res)
-	// 	}
-	// }
-	// nestedJoin(result, deps)
-
-	// fmt.Printf("Result: %+v\n", result)
-
-	// if len(result) > 0 {
-	// 	return result[0], nil
-	// }
-
-	return nil, nil
+	return raw[query.Keys[0]], nil
 }

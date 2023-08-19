@@ -1,14 +1,13 @@
 package main
 
 import (
+	"cdf/api"
 	"cdf/core"
 	"cdf/models"
 	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 
-	"github.com/xwb1989/sqlparser"
 )
 
 var INSERT_QUERY = `INSERT INTO orders (name, email) values ('Yudi', 'yudi@gmail.com')`
@@ -16,7 +15,7 @@ var INSERT_QUERY = `INSERT INTO orders (name, email) values ('Yudi', 'yudi@gmail
 var DELETE_QUERY = `DELETE FROM stores WHERE _id = '64bef4d717b947ddb0dc725f'`
 var UPDATE_QUERY = `UPDATE orders SET user_id = 'example@gmail.com' WHERE _id = '64bef4d78c548ee82bc69fd3'`
 
-var SIMPLE_SELECT = `
+var SELECT1 = `
 	SELECT
 		*
 	FROM
@@ -40,8 +39,7 @@ var SELECT_QUERY2 = `
 	FROM 
 		users u
 		JOIN store s ON u.id = s.user_id
-	WHERE
-		u.id = 2
+		JOIN users u2 ON s.user_id = u2.id
 `
 
 func main() {
@@ -63,17 +61,17 @@ func main() {
 
 	core.Start(&schema)
 
-	stmt, err := sqlparser.Parse(SELECT_QUERY2)
-	if err != nil {
-		fmt.Println("err", err)
-		return
-	}
+	// stmt, err := sqlparser.Parse(SELECT_QUERY2)
+	// if err != nil {
+	// 	fmt.Println("err", err)
+	// 	return
+	// }
 
-	res, err := core.Execute(stmt)
-	if err != nil {
-		fmt.Println("err", err)
-		return
-	}
-	fmt.Printf("Data: %+v\n", res)
-	// api.Start()
+	// res, err := core.Execute(stmt)
+	// if err != nil {
+	// 	fmt.Println("err", err)
+	// 	return
+	// }
+	// fmt.Printf("Data: %+v\n", res)
+	api.Start()
 }
