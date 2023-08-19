@@ -473,14 +473,19 @@ func selectAction(stmt *sqlparser.Select) (any, error) {
 			}
 			joinMap[key] = append(joinMap[key], val)
 		}
+		newVal := []map[string]any{}
 		targetQua := query.Keys[i-1]
 		target := raw[targetQua]
 		for _, val := range target {
 			key := buildKey(table, targetQua, val)
-			join := joinMap[key]
-			// TODO: Check join type
-			val[table.Name] = join
+			joinValues := joinMap[key]
+			val[table.Name] = joinValues
+			if table.Join == "join" && len(joinValues) == 0 {
+				continue
+			}
+			newVal = append(newVal, val)
 		}
+		raw[targetQua] = newVal
 	}
 
 	return raw[query.Keys[0]], nil
