@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func UpdatePg(conn *sql.DB, table string, wheres map[string]any, values map[string]any) (int, error) {
+func PgUpdate(conn *sql.DB, table string, wheres map[string]any, values map[string]any) (int, error) {
 	valueQueries := []string{}
 	args := []any{}
 	for name, value := range values {

@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func DeletePg(conn *sql.DB, table string, wheres map[string]any) (int, error) {
+func PgDelete(conn *sql.DB, table string, wheres map[string]any) (int, error) {
 	whereExpr := []string{}
 	args := []any{}
 	for name, val := range wheres {

@@ -84,25 +84,25 @@ func Start(schema *models.Schema) {
 		Type: "PostgreSQL",
 		insert: func(conn any, table string, columns []string, values [][]any) error {
 			if conn, ok := conn.(*sql.DB); ok {
-				return handlers.InsertPg(conn, table, columns, values)
+				return handlers.PgInsert(conn, table, columns, values)
 			}
 			return fmt.Errorf("db is not type of PostgreSQL")
 		},
 		delete: func(conn any, table string, wheres map[string]any) (int, error) {
 			if conn, ok := conn.(*sql.DB); ok {
-				return handlers.DeletePg(conn, table, wheres)
+				return handlers.PgDelete(conn, table, wheres)
 			}
 			return 0, fmt.Errorf("db is not type of PostgreSQL")
 		},
 		update: func(conn any, table string, wheres map[string]any, values map[string]any) (int, error) {
 			if conn, ok := conn.(*sql.DB); ok {
-				return handlers.UpdatePg(conn, table, wheres, values)
+				return handlers.PgUpdate(conn, table, wheres, values)
 			}
 			return 0, fmt.Errorf("db is not type of PostgreSQL")
 		},
 		read: func(conn any, table *models.QueryTable, wheres []*models.Cond) ([]map[string]any, error) {
 			if conn, ok := conn.(*sql.DB); ok {
-				return handlers.ReadPG(conn, table, wheres)
+				return handlers.PgRead(conn, table, wheres)
 			}
 			return nil, fmt.Errorf("db is not type of PostgreSQL")
 		},
@@ -112,28 +112,28 @@ func Start(schema *models.Schema) {
 		Type: "MongoDB",
 		insert: func(conn any, table string, columns []string, values [][]any) error {
 			if conn, ok := conn.(*mongo.Database); ok {
-				return handlers.InsertMongo(conn, table, columns, values)
+				return handlers.MongoInsert(conn, table, columns, values)
 			}
 
 			return fmt.Errorf("db is not type of MongoDB")
 		},
 		delete: func(conn any, table string, wheres map[string]any) (int, error) {
 			if conn, ok := conn.(*mongo.Database); ok {
-				return handlers.DeleteMongo(conn, table, wheres)
+				return handlers.MongoDelete(conn, table, wheres)
 			}
 
 			return 0, fmt.Errorf("db is not type of MongoDB")
 		},
 		update: func(conn any, table string, wheres map[string]any, values map[string]any) (int, error) {
 			if conn, ok := conn.(*mongo.Database); ok {
-				return handlers.UpdateMongo(conn, table, wheres, values)
+				return handlers.MongoUpdate(conn, table, wheres, values)
 			}
 
 			return 0, fmt.Errorf("db is not type of MongoDB")
 		},
 		read: func(conn any, table *models.QueryTable, wheres []*models.Cond) ([]map[string]any, error) {
 			if conn, ok := conn.(*mongo.Database); ok {
-				return handlers.ReadMongo(conn, table, wheres)
+				return handlers.MongoRead(conn, table, wheres)
 			}
 			return nil, fmt.Errorf("db is not type of MongoDB")
 		},

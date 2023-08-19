@@ -4,11 +4,12 @@ import (
 	"context"
 	"fmt"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func DeleteMongo(conn *mongo.Database, table string, wheres map[string]any) (int, error) {
+func MongoUpdate(conn *mongo.Database, table string, wheres map[string]any, values map[string]any) (int, error) {
 	coll := conn.Collection(table)
 	if coll == nil {
 		return 0, fmt.Errorf("collection %s not found", table)
@@ -22,10 +23,11 @@ func DeleteMongo(conn *mongo.Database, table string, wheres map[string]any) (int
 		}
 	}
 
-	res, err := coll.DeleteMany(context.TODO(), wheres)
+	update := bson.M{"$set": values}
+	res, err := coll.UpdateMany(context.TODO(), wheres, update)
 	if err != nil {
 		return 0, err
 	}
 
-	return int(res.DeletedCount), nil
+	return int(res.ModifiedCount), nil
 }

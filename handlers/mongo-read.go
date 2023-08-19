@@ -28,7 +28,7 @@ func parseOp(op string) string {
 	return ""
 }
 
-func ReadMongo(conn *mongo.Database, table *models.QueryTable, wheres []*models.Cond) ([]map[string]any, error) {
+func MongoRead(conn *mongo.Database, table *models.QueryTable, wheres []*models.Cond) ([]map[string]any, error) {
 	coll := conn.Collection(table.Name)
 
 	filter := map[string]any{}
