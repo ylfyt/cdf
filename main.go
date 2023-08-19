@@ -32,19 +32,16 @@ var SELECT_QUERY = `
 		store s
 		JOIN users u ON s.user_id = u.id
 		LEFT JOIN orders o ON o.user_id = u.id
-	WHERE
-		s.id = 3
 `
 
 var SELECT_QUERY2 = `
 	SELECT 
 		*
 	FROM 
-		store s
-		JOIN users u ON u.id = s.user_id
-		LEFT JOIN product p ON p.store_id = s.id
+		users u
+		JOIN store s ON u.id = s.user_id
 	WHERE
-		u.id  3
+		u.id = 2
 `
 
 func main() {
@@ -66,7 +63,7 @@ func main() {
 
 	core.Start(&schema)
 
-	stmt, err := sqlparser.Parse(SELECT_QUERY)
+	stmt, err := sqlparser.Parse(SELECT_QUERY2)
 	if err != nil {
 		fmt.Println("err", err)
 		return

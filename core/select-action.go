@@ -87,7 +87,7 @@ func selectPG(conn *sql.DB, table *models.QueryTable, wheres []*models.Cond) ([]
 		} else if cond.Left.Value != nil {
 			if vals, ok := cond.Left.Value.([]any); ok {
 				if len(vals) == 0 {
-					query = fmt.Sprintf("%s %s (array[])", cond.Right.Field, cond.Op)
+					query = "FALSE"
 				} else {
 					right := ""
 					for idx, val := range vals {
@@ -97,7 +97,7 @@ func selectPG(conn *sql.DB, table *models.QueryTable, wheres []*models.Cond) ([]
 							right += ","
 						}
 					}
-					query = fmt.Sprintf("%s %s (%s)", cond.Right.Field, cond.Op, right)
+					query = fmt.Sprintf("%s IN (%s)", cond.Right.Field, right)
 				}
 			} else {
 				queryParams = append(queryParams, cond.Left.Value)
@@ -106,7 +106,7 @@ func selectPG(conn *sql.DB, table *models.QueryTable, wheres []*models.Cond) ([]
 		} else if cond.Right.Value != nil {
 			if vals, ok := cond.Right.Value.([]any); ok {
 				if len(vals) == 0 {
-					query = fmt.Sprintf("%s %s (array[])", cond.Left.Field, cond.Op)
+					query = "FALSE"
 				} else {
 					right := ""
 					for idx, val := range vals {
@@ -116,7 +116,7 @@ func selectPG(conn *sql.DB, table *models.QueryTable, wheres []*models.Cond) ([]
 							right += ","
 						}
 					}
-					query = fmt.Sprintf("%s %s (%s)", cond.Left.Field, cond.Op, right)
+					query = fmt.Sprintf("%s IN (%s)", cond.Left.Field, right)
 				}
 			} else {
 				queryParams = append(queryParams, cond.Right.Value)
@@ -143,6 +143,10 @@ func selectPG(conn *sql.DB, table *models.QueryTable, wheres []*models.Cond) ([]
 			fmt.Sprintf("WHERE %s", strings.Join(whereQueries, " AND ")),
 		),
 	)
+
+	fmt.Println()
+	fmt.Printf("==QUERY==: %+v\n", query)
+	fmt.Println()
 
 	rows, err := conn.Query(query, queryParams...)
 	if err != nil {
@@ -297,6 +301,46 @@ func applyWheres(queries *models.OrderMap[string, *models.QueryTable], wheres []
 // 	return nil
 // }
 
+func applyDepWheres(depConds []*models.Cond, qua string, wheres *[]*models.Cond, rawValue map[string][]map[string]any) {
+	for _, cond := range depConds {
+		if cond.Left.Value != nil || cond.Right.Value != nil {
+			*wheres = append(*wheres, cond)
+			continue
+		}
+		if cond.Left.Qualifier == qua {
+			result := rawValue[cond.Right.Qualifier]
+			values := []any{}
+			for _, res := range result {
+				values = append(values, res[cond.Right.Field])
+			}
+			*wheres = append(*wheres, &models.Cond{
+				Left: cond.Left,
+				Op:   cond.Op,
+				Right: models.CondInfo{
+					Value: values,
+				},
+			})
+			continue
+		}
+		if cond.Right.Qualifier == qua {
+			result := rawValue[cond.Left.Qualifier]
+			values := []any{}
+			for _, res := range result {
+				values = append(values, res[cond.Left.Field])
+			}
+			*wheres = append(*wheres, &models.Cond{
+				Left: models.CondInfo{
+					Value: values,
+				},
+				Op:    cond.Op,
+				Right: cond.Right,
+			})
+			continue
+		}
+		// TODO: Bukan di table ini
+	}
+}
+
 func selectAction(stmt *sqlparser.Select) (any, error) {
 	fields := parseSelectField(stmt)
 
@@ -327,43 +371,7 @@ func selectAction(stmt *sqlparser.Select) (any, error) {
 		wheres := []*models.Cond{}
 		wheres = append(wheres, table.Conds...)
 
-		for _, cond := range table.DepConds {
-			if cond.Left.Value != nil || cond.Right.Value != nil {
-				wheres = append(wheres, cond)
-				continue
-			}
-			if cond.Left.Qualifier == qua {
-				result := raw[cond.Right.Qualifier]
-				values := []any{}
-				for _, res := range result {
-					values = append(values, res[cond.Right.Field])
-				}
-				wheres = append(wheres, &models.Cond{
-					Left: cond.Left,
-					Op:   cond.Op,
-					Right: models.CondInfo{
-						Value: values,
-					},
-				})
-				continue
-			}
-			if cond.Right.Qualifier == qua {
-				result := raw[cond.Left.Qualifier]
-				values := []any{}
-				for _, res := range result {
-					values = append(values, res[cond.Left.Field])
-				}
-				wheres = append(wheres, &models.Cond{
-					Left: models.CondInfo{
-						Value: values,
-					},
-					Op:    cond.Op,
-					Right: cond.Right,
-				})
-				continue
-			}
-			// TODO: Bukan di table ini
-		}
+		applyDepWheres(table.DepConds, qua, &wheres, raw)
 
 		db := getDb(table.Name)
 		if db.Type == "PostgreSQL" {

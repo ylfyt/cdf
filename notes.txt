@@ -1,0 +1,2 @@
+one-one: di tabel follow tidak ada key. maka hash key dari tabel prev dan value adalah single
+one-many: di tabel ada key, dan menjadi hash key dan valuenya adalah array
