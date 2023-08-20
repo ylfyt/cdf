@@ -5,4 +5,5 @@ type Database struct {
 	Name             string           `json:"name"`
 	ConnectionString string           `json:"connectionString"`
 	Tables           map[string]Table `json:"tables"`
+	Auths            []Auth           `json:"auth"`
 }

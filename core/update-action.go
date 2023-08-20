@@ -8,7 +8,7 @@ import (
 	"github.com/xwb1989/sqlparser"
 )
 
-func updateAction(stmt *sqlparser.Update) (any, error) {
+func (me *Handler) updateAction(stmt *sqlparser.Update) (any, error) {
 	wheres := map[string]any{}
 	if stmt.Where != nil {
 		wheres = getColumnValuesFromWhere(stmt.Where.Expr)

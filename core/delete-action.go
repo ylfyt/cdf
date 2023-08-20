@@ -41,7 +41,7 @@ func getColumnValuesFromWhere(expr sqlparser.Expr) map[string]any {
 	return values
 }
 
-func deleteAction(stmt *sqlparser.Delete) (any, error) {
+func (me *Handler) deleteAction(stmt *sqlparser.Delete) (any, error) {
 	wheres := map[string]any{}
 	if stmt.Where != nil {
 		wheres = getColumnValuesFromWhere(stmt.Where.Expr)

@@ -5,6 +5,7 @@ import (
 	"cdf/models"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -31,6 +32,12 @@ type database struct {
 var drivers map[string]*driver
 var databaseTable map[string]int
 var databases []*database
+var schema *models.Schema
+
+var createAuthRules map[string][]map[string]any
+var updateAuthRules map[string][]map[string]any
+var deleteAuthRules map[string][]map[string]any
+var readAuthRules map[string][]map[string]any
 
 func getConn(dbType string, conn string) (any, error) {
 	if dbType == "PostgreSQL" {
@@ -71,11 +78,29 @@ func getDb(table string) *database {
 	return databases[idx]
 }
 
-func Start(schema *models.Schema) {
+func applyAuth(auths []models.Auth, ctx string) {
+	for _, auth := range auths {
+		if strings.Contains(auth.Action, "c") {
+			createAuthRules[ctx] = append(createAuthRules[ctx], auth.Rule)
+		}
+		if strings.Contains(auth.Action, "u") {
+			updateAuthRules[ctx] = append(updateAuthRules[ctx], auth.Rule)
+		}
+		if strings.Contains(auth.Action, "d") {
+			deleteAuthRules[ctx] = append(updateAuthRules[ctx], auth.Rule)
+		}
+		if strings.Contains(auth.Action, "r") {
+			readAuthRules[ctx] = append(updateAuthRules[ctx], auth.Rule)
+		}
+	}
+}
+
+func Start(dbschema *models.Schema) {
 	if drivers != nil || databases != nil {
 		fmt.Println("DB already initiated")
 		return
 	}
+	schema = dbschema
 	drivers = make(map[string]*driver)
 	databases = make([]*database, 0)
 	databaseTable = make(map[string]int)
@@ -139,7 +164,12 @@ func Start(schema *models.Schema) {
 		},
 	}
 
-	for _, dbInfo := range schema.Databases {
+	createAuthRules = make(map[string][]map[string]any)
+	updateAuthRules = make(map[string][]map[string]any)
+	deleteAuthRules = make(map[string][]map[string]any)
+	readAuthRules = make(map[string][]map[string]any)
+
+	for _, dbInfo := range dbschema.Databases {
 		db, err := getConn(dbInfo.Type, dbInfo.ConnectionString)
 		if err != nil {
 			fmt.Println("Err", err)
@@ -151,9 +181,28 @@ func Start(schema *models.Schema) {
 			Name: dbInfo.Name,
 			Conn: db,
 		})
+		applyAuth(dbInfo.Auths, dbInfo.Name)
 
 		for _, table := range dbInfo.Tables {
 			databaseTable[table.Name] = len(databases) - 1
+			applyAuth(table.Auths, dbInfo.Name+"."+table.Name)
+
+			for name, field := range table.Fields {
+				if field, ok := field.(map[string]any); ok {
+					auth := field["auth"]
+					if auth == nil {
+						continue
+					}
+					data, _ := json.Marshal(auth)
+					var auths []models.Auth
+					_ = json.Unmarshal(data, &auths)
+					applyAuth(auths, dbInfo.Name+"."+table.Name+"."+name)
+				}
+			}
 		}
 	}
+	fmt.Printf("Create %+v\n", createAuthRules)
+	fmt.Printf("Update %+v\n", updateAuthRules)
+	fmt.Printf("Delete %+v\n", deleteAuthRules)
+	fmt.Printf("Read %+v\n", readAuthRules)
 }

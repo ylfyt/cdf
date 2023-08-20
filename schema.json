@@ -6,18 +6,34 @@
       "connectionString": "postgresql://postgres:postgres@localhost/coba?sslmode=disable",
       "tables": {
         "store": {
-          "auth:crud": {
-            "$user_id": "auth.user_id",
-            "auth.age": {
-              "$gte": 40
+          "auth": [
+            {
+              "action": "cud",
+              "rule": {
+                "$user_id": "auth.user_id",
+                "auth.age": {
+                  "$gte": 40
+                }
+              }
             }
-          },
+          ],
           "name": "store",
           "fields": {
             "id": "int",
             "user_id": {
               "type": "int",
-              "ref": "users.id"
+              "ref": "users.id",
+              "auth": [
+                {
+                  "action": "cud",
+                  "rule": {
+                    "$user_id": "auth.user_id",
+                    "auth.age": {
+                      "$gte": 40
+                    }
+                  }
+                }
+              ]
             },
             "name": "string",
             "description": "string",

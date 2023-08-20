@@ -1,12 +1,14 @@
 package main
 
 import (
-	"cdf/api"
 	"cdf/core"
 	"cdf/models"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
+
+	"github.com/xwb1989/sqlparser"
 )
 
 var INSERT_QUERY = `INSERT INTO orders (name, email) values ('Yudi', 'yudi@gmail.com')`
@@ -60,17 +62,18 @@ func main() {
 
 	core.Start(&schema)
 
-	// stmt, err := sqlparser.Parse(SELECT_QUERY2)
-	// if err != nil {
-	// 	fmt.Println("err", err)
-	// 	return
-	// }
+	stmt, err := sqlparser.Parse(SELECT_QUERY2)
+	if err != nil {
+		fmt.Println("err", err)
+		return
+	}
+	handler := core.Handler{}
 
-	// res, err := core.Execute(stmt)
-	// if err != nil {
-	// 	fmt.Println("err", err)
-	// 	return
-	// }
-	// fmt.Printf("Data: %+v\n", res)
-	api.Start()
+	res, err := handler.Execute(stmt)
+	if err != nil {
+		fmt.Println("err", err)
+		return
+	}
+	fmt.Printf("Data: %+v\n", res)
+	// api.Start()
 }

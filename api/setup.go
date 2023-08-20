@@ -2,10 +2,12 @@ package api
 
 import (
 	"cdf/core"
+	"cdf/utils"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/xwb1989/sqlparser"
 )
@@ -53,7 +55,14 @@ func requestHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, err := core.Execute(stmt)
+	token := strings.TrimPrefix(r.Header.Get("authorization"), "Bearer ")
+	claim := utils.ParseJwt(token, "my-secret-key")
+
+	handler := core.Handler{
+		Claim: claim,
+	}
+
+	data, err := handler.Execute(stmt)
 	if err != nil {
 		sendError(w, fmt.Sprintf("Failed to parse query: %v\n", err))
 		return

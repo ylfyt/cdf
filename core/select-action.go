@@ -230,7 +230,7 @@ func buildKey(table *models.QueryTable, qua string, value map[string]any) string
 	return key
 }
 
-func selectAction(stmt *sqlparser.Select) (any, error) {
+func (me *Handler) selectAction(stmt *sqlparser.Select) (any, error) {
 	fields := parseSelectField(stmt)
 	_ = fields
 

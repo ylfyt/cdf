@@ -8,7 +8,7 @@ import (
 	"github.com/xwb1989/sqlparser"
 )
 
-func insertAction(stmt *sqlparser.Insert) error {
+func (me *Handler) insertAction(stmt *sqlparser.Insert) error {
 	columns := make([]string, 0)
 	for _, column := range stmt.Columns {
 		columns = append(columns, column.CompliantName())

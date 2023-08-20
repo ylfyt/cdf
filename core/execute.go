@@ -5,21 +5,25 @@ import (
 	"github.com/xwb1989/sqlparser"
 )
 
-func Execute(stmt sqlparser.Statement) (any, error) {
+type Handler struct {
+	Claim map[string]any
+}
+
+func (me *Handler) Execute(stmt sqlparser.Statement) (any, error) {
 	if stmt, ok := stmt.(*sqlparser.Insert); ok {
-		return nil, insertAction(stmt)
+		return nil, me.insertAction(stmt)
 	}
 
 	if stmt, ok := stmt.(*sqlparser.Select); ok {
-		return selectAction(stmt)
+		return me.selectAction(stmt)
 	}
 
 	if stmt, ok := stmt.(*sqlparser.Delete); ok {
-		return deleteAction(stmt)
+		return me.deleteAction(stmt)
 	}
 
 	if stmt, ok := stmt.(*sqlparser.Update); ok {
-		return updateAction(stmt)
+		return me.updateAction(stmt)
 	}
 
 	return nil, fmt.Errorf("unsupported statement")
