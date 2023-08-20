@@ -13,6 +13,8 @@ import (
 
 var INSERT_QUERY = `INSERT INTO orders (name, email) values ('Yudi', 'yudi@gmail.com')`
 
+var INSERT2 = `INSERT INTO store (id, user_id, name, description, address) VALUES (3, 1, 'Toko 3', 'Toko 3', 'jalan toko 3')`
+
 var DELETE_QUERY = `DELETE FROM stores WHERE _id = '64bef4d717b947ddb0dc725f'`
 var UPDATE_QUERY = `UPDATE orders SET user_id = 'example@gmail.com' WHERE _id = '64bef4d78c548ee82bc69fd3'`
 
@@ -62,7 +64,7 @@ func main() {
 
 	core.Start(&schema)
 
-	stmt, err := sqlparser.Parse(SELECT_QUERY2)
+	stmt, err := sqlparser.Parse(INSERT2)
 	if err != nil {
 		fmt.Println("err", err)
 		return

@@ -201,8 +201,8 @@ func Start(dbschema *models.Schema) {
 			}
 		}
 	}
-	fmt.Printf("Create %+v\n", createAuthRules)
-	fmt.Printf("Update %+v\n", updateAuthRules)
-	fmt.Printf("Delete %+v\n", deleteAuthRules)
-	fmt.Printf("Read %+v\n", readAuthRules)
+	// fmt.Printf("Create %+v\n", createAuthRules)
+	// fmt.Printf("Update %+v\n", updateAuthRules)
+	// fmt.Printf("Delete %+v\n", deleteAuthRules)
+	// fmt.Printf("Read %+v\n", readAuthRules)
 }
