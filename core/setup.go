@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 
+	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -64,6 +65,11 @@ func getConn(dbType string, conn string) (any, error) {
 		mongoDb := client.Database(dbName)
 
 		return mongoDb, nil
+	}
+
+	if dbType == "MySQL" {
+		sqlDb, err := sql.Open("mysql", conn)
+		return sqlDb, err
 	}
 
 	return nil, fmt.Errorf("dbtype %s is not found", dbType)
@@ -130,6 +136,34 @@ func Start(dbschema *models.Schema) {
 				return handlers.PgRead(conn, table, wheres)
 			}
 			return nil, fmt.Errorf("db is not type of PostgreSQL")
+		},
+	}
+
+	drivers["MySQL"] = &driver{
+		Type: "MySQL",
+		insert: func(conn any, table string, columns []string, values [][]any) error {
+			if conn, ok := conn.(*sql.DB); ok {
+				return handlers.MyInsert(conn, table, columns, values)
+			}
+			return fmt.Errorf("db is not type of MySQL")
+		},
+		delete: func(conn any, table string, wheres []*models.Cond) (int, error) {
+			if conn, ok := conn.(*sql.DB); ok {
+				return handlers.MyDelete(conn, table, wheres)
+			}
+			return 0, fmt.Errorf("db is not type of MySQL")
+		},
+		update: func(conn any, table string, wheres []*models.Cond, values map[string]any) (int, error) {
+			if conn, ok := conn.(*sql.DB); ok {
+				return handlers.MyUpdate(conn, table, wheres, values)
+			}
+			return 0, fmt.Errorf("db is not type of MySQL")
+		},
+		read: func(conn any, table *models.QueryTable, wheres []*models.Cond) ([]map[string]any, error) {
+			if conn, ok := conn.(*sql.DB); ok {
+				return handlers.MyRead(conn, table, wheres)
+			}
+			return nil, fmt.Errorf("db is not type of MySQL")
 		},
 	}
 

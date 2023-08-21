@@ -71,7 +71,7 @@ func main() {
 	core.Start(&schema)
 
 	stmt, err := sqlparser.Parse(`
-		DELETE FROM product WHERE store_id = NULL
+		SELECT * FROM product WHERE _id = '64bef4d78c548ee82bc69fd3'
 	`)
 	if err != nil {
 		fmt.Println("err", err)

@@ -203,11 +203,11 @@ func applyDepWheres(depConds []*models.Cond, qua string, wheres *[]*models.Cond,
 				values = append(values, res[cond.Left.Field])
 			}
 			*wheres = append(*wheres, &models.Cond{
-				Left: models.CondInfo{
+				Left: cond.Right,
+				Op:   "IN",
+				Right: models.CondInfo{
 					Value: values,
 				},
-				Op:    "IN",
-				Right: cond.Right,
 			})
 			continue
 		}

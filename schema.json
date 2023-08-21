@@ -120,19 +120,6 @@
             "deleted_at": "timestamp"
           }
         },
-        "product_inventory": {
-          "name": "product_inventory",
-          "fields": {
-            "id": "int",
-            "product_id": {
-              "type": "int",
-              "ref": "product.id"
-            },
-            "quantity": "int",
-            "created_at": "timestamp",
-            "updated_at": "timestamp"
-          }
-        },
         "product_category": {
           "name": "product_category",
           "fields": {
@@ -175,6 +162,25 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "db_inventory": {
+      "type": "MySQL",
+      "name": "db_inventory",
+      "connectionString": "root:root@tcp(127.0.0.1:3306)/db_inventory",
+      "tables": {
+        "inventory": {
+          "name": "inventory",
+          "fields": {
+            "id": "int",
+            "product_id": {
+              "type": "int",
+              "ref": "product.id"
+            },
+            "stock": "int",
+            "updated_at": "timestamp"
           }
         }
       }
