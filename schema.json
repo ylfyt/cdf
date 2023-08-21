@@ -184,6 +184,20 @@
           }
         }
       }
+    },
+    "db_trx": {
+      "type": "Cassandra",
+      "name": "db_trx",
+      "connectionString": ":@127.0.0.1:9042/db_trx",
+      "tables": {
+        "trx": {
+          "name": "trx",
+          "fields": {
+            "id": "int",
+            "order_id": "string"
+          }
+        }
+      }
     }
   }
 }

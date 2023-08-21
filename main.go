@@ -72,7 +72,9 @@ func main() {
 
 	core.Start(&schema)
 
-	stmt, err := sqlparser.Parse(SELECT1)
+	stmt, err := sqlparser.Parse(`
+		SELECT * FROM store s JOIN users u ON s.user_id = u.id
+	`)
 	if err != nil {
 		fmt.Println("err", err)
 		return

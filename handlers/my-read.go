@@ -6,8 +6,6 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
-
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func MyRead(conn *sql.DB, table *models.QueryTable, wheres []*models.Cond) ([]map[string]any, error) {
@@ -20,65 +18,7 @@ func MyRead(conn *sql.DB, table *models.QueryTable, wheres []*models.Cond) ([]ma
 	}
 
 	queryParams := []any{}
-	whereQueries := []string{}
-	for _, cond := range wheres {
-		query := ""
-		if cond.Left.Value != nil && cond.Right.Value != nil {
-			// queryParams = append(queryParams, parseArg(cond.Left.Value))
-			// queryParams = append(queryParams, parseArg(cond.Right.Value))
-			// query = fmt.Sprintf("$%d %s $%d", len(queryParams)-1, cond.Op, len(queryParams))
-		} else if cond.Left.Value != nil {
-			// TODO: Check if deps or not
-			if vals, ok := cond.Left.Value.([]any); ok {
-				if len(vals) == 0 {
-					query = "FALSE"
-				} else {
-					right := ""
-					for idx, val := range vals {
-						if _id, ok := val.(primitive.ObjectID); ok {
-							queryParams = append(queryParams, _id.String())
-						} else {
-							queryParams = append(queryParams, val)
-						}
-						right += "?"
-						if idx != len(vals)-1 {
-							right += ","
-						}
-					}
-					query = fmt.Sprintf("%s IN (%s)", cond.Right.Field, right)
-				}
-			} else {
-				queryParams = append(queryParams, cond.Left.Value)
-				query = fmt.Sprintf("%s %s ?", cond.Right.Field, cond.Op)
-			}
-		} else if cond.Right.Value != nil {
-			if vals, ok := cond.Right.Value.([]any); ok {
-				if len(vals) == 0 {
-					query = "FALSE"
-				} else {
-					right := ""
-					for idx, val := range vals {
-						if _id, ok := val.(primitive.ObjectID); ok {
-							queryParams = append(queryParams, _id.Hex())
-						} else {
-							queryParams = append(queryParams, val)
-						}
-						right += "?"
-						if idx != len(vals)-1 {
-							right += ","
-						}
-					}
-					query = fmt.Sprintf("%s IN (%s)", cond.Left.Field, right)
-				}
-			} else {
-				queryParams = append(queryParams, cond.Right.Value)
-				query = fmt.Sprintf("%s %s ?", cond.Left.Field, cond.Op)
-			}
-		} else {
-			query = fmt.Sprintf("%s %s %s", cond.Left.Field, cond.Op, cond.Right.Field)
-		}
-		whereQueries = append(whereQueries, query)
-	}
+	whereQueries := buildWhereQuery(wheres, &queryParams, false)
 
 	query := fmt.Sprintf(`
 		SELECT

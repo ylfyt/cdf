@@ -7,9 +7,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/gocql/gocql"
 	_ "github.com/lib/pq"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -72,7 +74,27 @@ func getConn(dbType string, conn string) (any, error) {
 		return sqlDb, err
 	}
 
-	return nil, fmt.Errorf("dbtype %s is not found", dbType)
+	if dbType == "Cassandra" {
+		connInfo := strings.Split(conn, "@")
+		username := strings.Split(connInfo[0], ":")[0]
+		password := strings.Split(connInfo[0], ":")[1]
+		hostInfo := strings.Split(connInfo[1], "/")
+		host := strings.Split(hostInfo[0], ":")[0]
+		port := strings.Split(hostInfo[0], ":")[1]
+		keySpace := hostInfo[1]
+
+		cluster := gocql.NewCluster(host)
+		cluster.Port, _ = strconv.Atoi(port)
+		cluster.Keyspace = keySpace
+		cluster.Authenticator = gocql.PasswordAuthenticator{
+			Username: username,
+			Password: password,
+		}
+		session, err := cluster.CreateSession()
+		return session, err
+	}
+
+	return nil, fmt.Errorf("dbtype %s is not supported", dbType)
 }
 
 func getDb(table string) *database {
@@ -164,6 +186,34 @@ func Start(dbschema *models.Schema) {
 				return handlers.MyRead(conn, table, wheres)
 			}
 			return nil, fmt.Errorf("db is not type of MySQL")
+		},
+	}
+
+	drivers["Cassandra"] = &driver{
+		Type: "Cassandra",
+		insert: func(conn any, table string, columns []string, values [][]any) error {
+			if conn, ok := conn.(*gocql.Session); ok {
+				return handlers.CsInsert(conn, table, columns, values)
+			}
+			return fmt.Errorf("db is not type of Cassandra")
+		},
+		delete: func(conn any, table string, wheres []*models.Cond) (int, error) {
+			if conn, ok := conn.(*gocql.Session); ok {
+				return handlers.CsDelete(conn, table, wheres)
+			}
+			return 0, fmt.Errorf("db is not type of Cassandra")
+		},
+		update: func(conn any, table string, wheres []*models.Cond, values map[string]any) (int, error) {
+			if conn, ok := conn.(*gocql.Session); ok {
+				return handlers.CsUpdate(conn, table, wheres, values)
+			}
+			return 0, fmt.Errorf("db is not type of Cassandra")
+		},
+		read: func(conn any, table *models.QueryTable, wheres []*models.Cond) ([]map[string]any, error) {
+			if conn, ok := conn.(*gocql.Session); ok {
+				return handlers.CsRead(conn, table, wheres)
+			}
+			return nil, fmt.Errorf("db is not type of Cassandra")
 		},
 	}
 

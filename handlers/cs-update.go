@@ -3,20 +3,21 @@ package handlers
 import (
 	"cdf/models"
 	"cdf/utils"
-	"database/sql"
 	"fmt"
 	"strings"
+
+	"github.com/gocql/gocql"
 )
 
-func PgUpdate(conn *sql.DB, table string, wheres []*models.Cond, values map[string]any) (int, error) {
+func CsUpdate(conn *gocql.Session, table string, wheres []*models.Cond, values map[string]any) (int, error) {
 	valueQueries := []string{}
 	queryParams := []any{}
 	for name, value := range values {
 		queryParams = append(queryParams, value)
-		valueQueries = append(valueQueries, fmt.Sprintf(`%s = $%d`, name, len(queryParams)))
+		valueQueries = append(valueQueries, fmt.Sprintf(`%s = ?`, name))
 	}
 
-	whereQueries := buildWhereQuery(wheres, &queryParams, true)
+	whereQueries := buildWhereQuery(wheres, &queryParams, false)
 
 	query := fmt.Sprintf(`
 		UPDATE %s
@@ -29,19 +30,14 @@ func PgUpdate(conn *sql.DB, table string, wheres []*models.Cond, values map[stri
 		fmt.Sprintf("WHERE %s", strings.Join(whereQueries, " AND ")),
 	))
 
-	fmt.Println("=== UPDATE PG ===")
+	fmt.Println("=== UPDATE MY ===")
 	fmt.Println(query)
-	fmt.Println("*** UPDATE PG ***")
+	fmt.Println("*** UPDATE MY ***")
 
-	res, err := conn.Exec(query, queryParams...)
+	err := conn.Query(query, queryParams...).Exec()
 	if err != nil {
 		return 0, err
 	}
 
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return 0, err
-	}
-
-	return int(affected), nil
+	return 0, nil
 }
