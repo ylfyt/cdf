@@ -5,6 +5,7 @@ import (
 	"cdf/utils"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/xwb1989/sqlparser"
 )
@@ -47,5 +48,53 @@ func (me *Handler) updateAction(stmt *sqlparser.Update) (any, error) {
 		return nil, fmt.Errorf("table %s not found", tableName)
 	}
 	driver := drivers[db.Type]
+
+	// === AUTH
+	dbRules := updateAuthRules[db.Name]
+	if len(dbRules) != 0 {
+		err := me.validateRules(dbRules, db.Name, "", nil, nil)
+		if err != nil {
+			return 0, err
+		}
+	}
+	inputValues := []map[string]any{
+		values,
+	}
+	tableRules := updateAuthRules[db.Name+"."+tableName]
+	if len(tableRules) != 0 {
+		isDataRequired := false
+		for _, rule := range tableRules {
+			for key := range rule {
+				if strings.HasPrefix(key, "$") {
+					isDataRequired = true
+				}
+			}
+		}
+		var data []map[string]any
+		if isDataRequired {
+			dataTmp, err := driver.read(db.Conn, &models.QueryTable{
+				Name:         tableName,
+				SelectFields: map[string]any{},
+			}, wheres)
+			if err != nil {
+				return 0, err
+			}
+			data = dataTmp
+		}
+		err := me.validateRules(tableRules, db.Name, tableName, inputValues, data)
+		if err != nil {
+			return 0, err
+		}
+	}
+	for fieldName := range schema.Databases[db.Name].Tables[tableName].Fields {
+		fieldRules := updateAuthRules[db.Name+"."+tableName+"."+fieldName]
+		if len(fieldRules) != 0 {
+			err := me.validateRules(fieldRules, db.Name, tableName, inputValues, nil)
+			if err != nil {
+				return 0, err
+			}
+		}
+	}
+	// === END AUTH
 	return driver.update(db.Conn, tableName, wheres, values)
 }

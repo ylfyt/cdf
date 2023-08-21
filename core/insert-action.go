@@ -218,16 +218,7 @@ func isValid(val1 any, val2 any, fieldType string, op string) error {
 	return nil
 }
 
-func (me *Handler) validateRules(rules []map[string]any, dbName string, tableName string, columns []string, inputValues [][]any, existValues []map[string]any) error {
-	getFieldIdx := func(columns []string, field string) int {
-		for idx, col := range columns {
-			if col == field {
-				return idx
-			}
-		}
-		return -1
-	}
-
+func (me *Handler) validateRules(rules []map[string]any, dbName string, tableName string, inputValues []map[string]any, existValues []map[string]any) error {
 	for _, rule := range rules {
 		for key, authRule := range rule {
 			if rule, ok := authRule.(string); ok && strings.HasPrefix(rule, "data.") {
@@ -240,17 +231,18 @@ func (me *Handler) validateRules(rules []map[string]any, dbName string, tableNam
 					return fmt.Errorf("in db ctx")
 				}
 				field := strings.Split(key, ".")[1]
-				idx := getFieldIdx(columns, field)
-				if idx == -1 {
-					return fmt.Errorf("data field %s not found", field)
-				}
 				fieldType := getFieldType(dbName, tableName, field)
 				if fieldType == "" {
 					return fmt.Errorf("field %s not found", field)
 				}
 
-				for _, dataValues := range inputValues {
-					dataValue := dataValues[idx]
+				for _, values := range inputValues {
+					dataValue, exist := values[field]
+					if !exist {
+						// return fmt.Errorf("input field %s not found", field)
+						// TODO: Check action type??
+						continue
+					}
 
 					if val, ok := authRule.(map[string]any); ok {
 						for op, val := range val {
@@ -401,17 +393,26 @@ func (me *Handler) insertAction(stmt *sqlparser.Insert) error {
 		return fmt.Errorf("table %s not found", tableName)
 	}
 
+	inputValues := []map[string]any{}
+	for _, value := range values {
+		newValue := map[string]any{}
+		for idx, column := range columns {
+			newValue[column] = value[idx]
+		}
+		inputValues = append(inputValues, newValue)
+	}
+
 	// === AUTH
 	dbRules := createAuthRules[db.Name]
 	if len(dbRules) != 0 {
-		err := me.validateRules(dbRules, db.Name, "", nil, nil, nil)
+		err := me.validateRules(dbRules, db.Name, "", nil, nil)
 		if err != nil {
 			return err
 		}
 	}
 	tableRules := createAuthRules[db.Name+"."+tableName]
 	if len(tableRules) != 0 {
-		err := me.validateRules(tableRules, db.Name, tableName, columns, values, nil)
+		err := me.validateRules(tableRules, db.Name, tableName, inputValues, nil)
 		if err != nil {
 			return err
 		}
@@ -419,7 +420,7 @@ func (me *Handler) insertAction(stmt *sqlparser.Insert) error {
 	for fieldName := range schema.Databases[db.Name].Tables[tableName].Fields {
 		fieldRules := createAuthRules[db.Name+"."+tableName+"."+fieldName]
 		if len(fieldRules) != 0 {
-			err := me.validateRules(fieldRules, db.Name, tableName, columns, values, nil)
+			err := me.validateRules(fieldRules, db.Name, tableName, inputValues, nil)
 			if err != nil {
 				return err
 			}

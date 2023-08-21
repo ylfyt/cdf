@@ -75,6 +75,32 @@
       "tables": {
         "product": {
           "name": "product",
+          "auth": [
+            {
+              "action": "cu",
+              "rule": {
+                "data.store_id": "auth.store_id",
+                "data.category": {
+                  "$in": [
+                    "ELETRONIC",
+                    "TOY"
+                  ]
+                }
+              }
+            },
+            {
+              "action": "u",
+              "rule": {
+                "$store_id": "auth.store_id",
+                "data.category": {
+                  "$in": [
+                    "ELETRONIC",
+                    "TOY"
+                  ]
+                }
+              }
+            }
+          ],
           "fields": {
             "id": "int",
             "store_id": {
@@ -84,6 +110,7 @@
             "name": "string",
             "description": "string",
             "price": "int",
+            "category": "string",
             "category_id": {
               "type": "int",
               "ref": "product_category.id"

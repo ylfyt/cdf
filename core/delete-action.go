@@ -10,39 +10,6 @@ import (
 	"github.com/xwb1989/sqlparser"
 )
 
-func getColumnValuesFromWhere(expr sqlparser.Expr) map[string]any {
-	values := make(map[string]any)
-
-	// If the expression is a binary comparison
-	if binExpr, ok := expr.(*sqlparser.ComparisonExpr); ok {
-		leftCol, ok := binExpr.Left.(*sqlparser.ColName)
-		if ok {
-			colName := leftCol.Name.String()
-			val, _ := utils.ParseValue(binExpr.Right)
-
-			// Add column name and value to the map
-			values[colName] = val
-		}
-	}
-
-	// If the expression is a logical AND expression
-	if andExpr, ok := expr.(*sqlparser.AndExpr); ok {
-		// Recursively process both sides of the AND expression
-		leftValues := getColumnValuesFromWhere(andExpr.Left)
-		rightValues := getColumnValuesFromWhere(andExpr.Right)
-
-		// Merge the values from both sides
-		for col, val := range leftValues {
-			values[col] = val
-		}
-		for col, val := range rightValues {
-			values[col] = val
-		}
-	}
-
-	return values
-}
-
 func (me *Handler) deleteAction(stmt *sqlparser.Delete) (int, error) {
 	var wheres []*models.Cond
 	if stmt.Where != nil {
@@ -77,7 +44,7 @@ func (me *Handler) deleteAction(stmt *sqlparser.Delete) (int, error) {
 	// === AUTH
 	dbRules := deleteAuthRules[db.Name]
 	if len(dbRules) != 0 {
-		err := me.validateRules(dbRules, db.Name, "", nil, nil, nil)
+		err := me.validateRules(dbRules, db.Name, "", nil, nil)
 		if err != nil {
 			return 0, err
 		}
@@ -103,15 +70,15 @@ func (me *Handler) deleteAction(stmt *sqlparser.Delete) (int, error) {
 			}
 			data = dataTmp
 		}
-		err := me.validateRules(tableRules, db.Name, tableName, utils.GetMapKeys(schema.Databases[db.Name].Tables[tableName].Fields), nil, data)
+		err := me.validateRules(tableRules, db.Name, tableName, nil, data)
 		if err != nil {
 			return 0, err
 		}
 	}
 	for fieldName := range schema.Databases[db.Name].Tables[tableName].Fields {
-		fieldRules := createAuthRules[db.Name+"."+tableName+"."+fieldName]
+		fieldRules := deleteAuthRules[db.Name+"."+tableName+"."+fieldName]
 		if len(fieldRules) != 0 {
-			err := me.validateRules(fieldRules, db.Name, tableName, utils.GetMapKeys(schema.Databases[db.Name].Tables[tableName].Fields), nil, nil)
+			err := me.validateRules(fieldRules, db.Name, tableName, nil, nil)
 			if err != nil {
 				return 0, err
 			}
