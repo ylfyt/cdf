@@ -17,7 +17,7 @@ import (
 type driver struct {
 	Type   string
 	insert func(conn any, table string, columns []string, values [][]any) error
-	delete func(conn any, table string, wheres map[string]any) (int, error)
+	delete func(conn any, table string, wheres []*models.Cond) (int, error)
 	update func(conn any, table string, wheres map[string]any, values map[string]any) (int, error)
 	read   func(conn any, table *models.QueryTable, wheres []*models.Cond) ([]map[string]any, error)
 }
@@ -113,7 +113,7 @@ func Start(dbschema *models.Schema) {
 			}
 			return fmt.Errorf("db is not type of PostgreSQL")
 		},
-		delete: func(conn any, table string, wheres map[string]any) (int, error) {
+		delete: func(conn any, table string, wheres []*models.Cond) (int, error) {
 			if conn, ok := conn.(*sql.DB); ok {
 				return handlers.PgDelete(conn, table, wheres)
 			}
@@ -142,7 +142,7 @@ func Start(dbschema *models.Schema) {
 
 			return fmt.Errorf("db is not type of MongoDB")
 		},
-		delete: func(conn any, table string, wheres map[string]any) (int, error) {
+		delete: func(conn any, table string, wheres []*models.Cond) (int, error) {
 			if conn, ok := conn.(*mongo.Database); ok {
 				return handlers.MongoDelete(conn, table, wheres)
 			}

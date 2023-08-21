@@ -75,7 +75,7 @@ func isValid(val1 any, val2 any, fieldType string, op string) error {
 			}
 			return nil
 		}
-		b, _ := utils.CaseInt64(val1)
+		b, _ := utils.CaseInt64(val2)
 		switch op {
 		case "$eq":
 			if a != b {
@@ -128,7 +128,7 @@ func isValid(val1 any, val2 any, fieldType string, op string) error {
 			}
 			return nil
 		}
-		b, _ := utils.CaseFloat64(val1)
+		b, _ := utils.CaseFloat64(val2)
 		switch op {
 		case "$eq":
 			if a != b {
@@ -218,7 +218,7 @@ func isValid(val1 any, val2 any, fieldType string, op string) error {
 	return nil
 }
 
-func (me *Handler) validateInsert(rules []map[string]any, dbName string, tableName string, columns []string, inputValues [][]any) error {
+func (me *Handler) validateRules(rules []map[string]any, dbName string, tableName string, columns []string, inputValues [][]any, existValues []map[string]any) error {
 	getFieldIdx := func(columns []string, field string) int {
 		for idx, col := range columns {
 			if col == field {
@@ -275,6 +275,7 @@ func (me *Handler) validateInsert(rules []map[string]any, dbName string, tableNa
 						if err != nil {
 							return err
 						}
+						continue
 					}
 
 					err := isValid(dataValue, authRule, fieldType, "$eq")
@@ -308,6 +309,53 @@ func (me *Handler) validateInsert(rules []map[string]any, dbName string, tableNa
 				err := isValid(claimVal, authRule, claimType, "$eq")
 				if err != nil {
 					return err
+				}
+				continue
+			}
+
+			if strings.HasPrefix(key, "$") {
+				if tableName == "" {
+					return fmt.Errorf("in db ctx")
+				}
+				field := strings.Split(key, "$")[1]
+				fieldType := getFieldType(dbName, tableName, field)
+				if fieldType == "" {
+					return fmt.Errorf("field %s not found", field)
+				}
+				for _, values := range existValues {
+					fieldVal, exist := values[field]
+					if !exist {
+						return fmt.Errorf("field %s is not found", field)
+					}
+					if val, ok := authRule.(map[string]any); ok {
+						for op, val := range val {
+							err := isValid(fieldVal, val, fieldType, op)
+							if err != nil {
+								return err
+							}
+						}
+						continue
+					}
+					if val, ok := authRule.(string); ok && strings.HasPrefix(val, "auth.") {
+						claimField := strings.Split(val, ".")[1]
+						if me.Claim == nil {
+							return fmt.Errorf("unauth")
+						}
+						authVal, exist := me.Claim[claimField]
+						if !exist {
+							return fmt.Errorf("claim field %s not found", claimField)
+						}
+
+						err := isValid(fieldVal, authVal, fieldType, "$eq")
+						if err != nil {
+							return err
+						}
+						continue
+					}
+					err := isValid(fieldVal, authRule, fieldType, "$eq")
+					if err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -356,14 +404,14 @@ func (me *Handler) insertAction(stmt *sqlparser.Insert) error {
 	// === AUTH
 	dbRules := createAuthRules[db.Name]
 	if len(dbRules) != 0 {
-		err := me.validateInsert(dbRules, db.Name, "", nil, nil)
+		err := me.validateRules(dbRules, db.Name, "", nil, nil, nil)
 		if err != nil {
 			return err
 		}
 	}
 	tableRules := createAuthRules[db.Name+"."+tableName]
 	if len(tableRules) != 0 {
-		err := me.validateInsert(tableRules, db.Name, tableName, columns, values)
+		err := me.validateRules(tableRules, db.Name, tableName, columns, values, nil)
 		if err != nil {
 			return err
 		}
@@ -371,7 +419,7 @@ func (me *Handler) insertAction(stmt *sqlparser.Insert) error {
 	for fieldName := range schema.Databases[db.Name].Tables[tableName].Fields {
 		fieldRules := createAuthRules[db.Name+"."+tableName+"."+fieldName]
 		if len(fieldRules) != 0 {
-			err := me.validateInsert(fieldRules, db.Name, tableName, columns, values)
+			err := me.validateRules(fieldRules, db.Name, tableName, columns, values, nil)
 			if err != nil {
 				return err
 			}

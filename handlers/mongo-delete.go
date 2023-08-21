@@ -1,28 +1,43 @@
 package handlers
 
 import (
+	"cdf/models"
 	"context"
 	"fmt"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func MongoDelete(conn *mongo.Database, table string, wheres map[string]any) (int, error) {
+func MongoDelete(conn *mongo.Database, table string, wheres []*models.Cond) (int, error) {
 	coll := conn.Collection(table)
 	if coll == nil {
 		return 0, fmt.Errorf("collection %s not found", table)
 	}
 
-	if _id, exist := wheres["_id"]; exist {
-		if _id, ok := _id.(string); ok {
-			if objectID, err := primitive.ObjectIDFromHex(_id); err == nil {
-				wheres["_id"] = objectID
+	filter := map[string]any{}
+	for _, cond := range wheres {
+		if cond.Left.Value != nil && cond.Right.Value != nil {
+			//TODO ??
+			continue
+		}
+		op := parseOp(cond.Op)
+		field := cond.Left.Field
+		val := cond.Right.Value
+		if field == "_id" {
+			if _id, ok := val.(string); ok {
+				if objectID, err := primitive.ObjectIDFromHex(_id); err == nil {
+					val = objectID
+				}
 			}
+		}
+		filter[field] = bson.M{
+			op: val,
 		}
 	}
 
-	res, err := coll.DeleteMany(context.TODO(), wheres)
+	res, err := coll.DeleteMany(context.TODO(), filter)
 	if err != nil {
 		return 0, err
 	}

@@ -1,9 +1,11 @@
 package core
 
 import (
+	"cdf/models"
 	"cdf/utils"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/xwb1989/sqlparser"
 )
@@ -41,18 +43,18 @@ func getColumnValuesFromWhere(expr sqlparser.Expr) map[string]any {
 	return values
 }
 
-func (me *Handler) deleteAction(stmt *sqlparser.Delete) (any, error) {
-	wheres := map[string]any{}
+func (me *Handler) deleteAction(stmt *sqlparser.Delete) (int, error) {
+	var wheres []*models.Cond
 	if stmt.Where != nil {
-		wheres = getColumnValuesFromWhere(stmt.Where.Expr)
+		wheres = utils.ParseJoinCondition(stmt.Where.Expr)
 	}
 
 	if len(wheres) == 0 {
-		return nil, errors.New("deleting table without where expr is not allowed")
+		return 0, errors.New("deleting table without where expr is not allowed")
 	}
 
 	if len(stmt.TableExprs) == 0 {
-		return nil, errors.New("table name is not found")
+		return 0, errors.New("table name is not found")
 	}
 
 	tableName := ""
@@ -63,13 +65,48 @@ func (me *Handler) deleteAction(stmt *sqlparser.Delete) (any, error) {
 	}
 
 	if tableName == "" {
-		return nil, errors.New("table name is not found")
+		return 0, errors.New("table name is not found")
 	}
 
 	db := getDb(tableName)
 	if db == nil {
-		return nil, fmt.Errorf("table %s not found", tableName)
+		return 0, fmt.Errorf("table %s not found", tableName)
 	}
 	driver := drivers[db.Type]
+
+	// === AUTH
+	dbRules := deleteAuthRules[db.Name]
+	if len(dbRules) != 0 {
+		err := me.validateRules(dbRules, db.Name, "", nil, nil, nil)
+		if err != nil {
+			return 0, err
+		}
+	}
+	tableRules := deleteAuthRules[db.Name+"."+tableName]
+	if len(tableRules) != 0 {
+		isDataRequired := false
+		for _, rule := range tableRules {
+			for key := range rule {
+				if strings.HasPrefix(key, "$") {
+					isDataRequired = true
+				}
+			}
+		}
+		var data []map[string]any
+		if isDataRequired {
+			dataTmp, err := driver.read(db.Conn, &models.QueryTable{
+				Name:         tableName,
+				SelectFields: map[string]any{},
+			}, wheres)
+			if err != nil {
+				return 0, err
+			}
+			data = dataTmp
+		}
+		err := me.validateRules(tableRules, db.Name, tableName, utils.GetMapKeys(schema.Databases[db.Name].Tables[tableName].Fields), nil, data)
+		if err != nil {
+			return 0, err
+		}
+	}
 	return driver.delete(db.Conn, tableName, wheres)
 }
