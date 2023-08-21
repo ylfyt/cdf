@@ -238,11 +238,10 @@ func (me *Handler) validateRules(rules []map[string]any, dbName string, tableNam
 
 				for _, values := range inputValues {
 					dataValue, exist := values[field]
-					if !exist {
-						// return fmt.Errorf("input field %s not found", field)
-						// TODO: Check action type??
-						continue
-					}
+					_ = exist
+					// if !exist {
+					// 	return fmt.Errorf("input field %s not found", field)
+					// }
 
 					if val, ok := authRule.(map[string]any); ok {
 						for op, val := range val {

@@ -17,9 +17,15 @@ func parseComparison(expr *sqlparser.ComparisonExpr) models.Cond {
 			Field:     field,
 		}
 	} else {
-		val, _ := ParseValue(expr.Left.(*sqlparser.SQLVal))
-		leftCond = models.CondInfo{
-			Value: val,
+		if expr, ok := expr.Left.(*sqlparser.SQLVal); ok {
+			val, _ := ParseValue(expr)
+			leftCond = models.CondInfo{
+				Value: val,
+			}
+		} else {
+			leftCond = models.CondInfo{
+				Value: nil,
+			}
 		}
 	}
 
@@ -32,9 +38,15 @@ func parseComparison(expr *sqlparser.ComparisonExpr) models.Cond {
 			Field:     field,
 		}
 	} else {
-		val, _ := ParseValue(expr.Right.(*sqlparser.SQLVal))
-		rightCond = models.CondInfo{
-			Value: val,
+		if expr, ok := expr.Right.(*sqlparser.SQLVal); ok {
+			val, _ := ParseValue(expr)
+			rightCond = models.CondInfo{
+				Value: val,
+			}
+		} else {
+			rightCond = models.CondInfo{
+				Value: nil,
+			}
 		}
 	}
 

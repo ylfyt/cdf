@@ -70,7 +70,9 @@ func main() {
 
 	core.Start(&schema)
 
-	stmt, err := sqlparser.Parse(UPDATE_QUERY)
+	stmt, err := sqlparser.Parse(`
+		DELETE FROM product WHERE store_id = NULL
+	`)
 	if err != nil {
 		fmt.Println("err", err)
 		return

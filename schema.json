@@ -77,7 +77,7 @@
           "name": "product",
           "auth": [
             {
-              "action": "cu",
+              "action": "c",
               "rule": {
                 "data.store_id": "auth.store_id",
                 "data.category": {
