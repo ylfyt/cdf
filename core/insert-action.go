@@ -10,49 +10,213 @@ import (
 	"github.com/xwb1989/sqlparser"
 )
 
-func isEQ[T comparable](a T, b T) bool {
-	return a == b
+var (
+	TYPE_INT    = "int"
+	TYPE_STRING = "string"
+	TYPE_FLOAT  = "float"
+)
+
+func getValueType(a any) string {
+	switch reflect.TypeOf(a).Kind() {
+	case reflect.String:
+		return TYPE_STRING
+	case reflect.Int, reflect.Int32, reflect.Int64:
+		return TYPE_INT
+	case reflect.Float32, reflect.Float64:
+		return TYPE_FLOAT
+	}
+	return ""
 }
 
-type iCompare interface {
-	int32 | int64 | float32 | float64
+func getFieldType(dbName string, tableName string, fieldName string) string {
+	db, exist := schema.Databases[dbName]
+	if !exist {
+		return ""
+	}
+	table, exist := db.Tables[tableName]
+	if !exist {
+		return ""
+	}
+	fieldInfo, exist := table.Fields[fieldName]
+	if !exist {
+		return ""
+	}
+	if field, ok := fieldInfo.(map[string]any); ok {
+		fieldType := field["type"]
+		if fieldType == nil {
+			return ""
+		}
+		return fmt.Sprint(fieldType)
+	}
+	return fmt.Sprint(fieldInfo)
 }
 
-func isGT[T iCompare](a T, b T) bool {
-	return a > b
-}
-func isGTE[T iCompare](a T, b T) bool {
-	return a >= b
-}
-func isLT[T iCompare](a T, b T) bool {
-	return a < b
-}
-func isLTE[T iCompare](a T, b T) bool {
-	return a <= b
-}
-
-func compare[T comparable](a T, b T, op string) bool {
-	switch op {
-	case "=":
-		return a == b
-	case "$gt":
-
+func isValid(val1 any, val2 any, fieldType string, op string) error {
+	if fieldType == "int" {
+		a, _ := utils.CaseInt64(val1)
+		if op == "$in" || op == "$nin" {
+			if _, ok := val2.([]any); !ok {
+				return fmt.Errorf("val2 %s is not array", utils.CaseString(val2))
+			}
+			vals := val2.([]any)
+			found := false
+			for _, val := range vals {
+				b, _ := utils.CaseInt64(val)
+				if op == "$in" && a == b {
+					found = true
+					break
+				}
+				if op == "$nin" && a == b {
+					return fmt.Errorf("in %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+				}
+			}
+			if op == "$in" && !found {
+				return fmt.Errorf("not in %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+			}
+			return nil
+		}
+		b, _ := utils.CaseInt64(val1)
+		switch op {
+		case "$eq":
+			if a != b {
+				return fmt.Errorf("not equal %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+			}
+		case "$neq":
+			if a == b {
+				return fmt.Errorf("equal %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+			}
+		case "$gt":
+			if !(a > b) {
+				return fmt.Errorf("not gte %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+			}
+		case "$gte":
+			if !(a >= b) {
+				return fmt.Errorf("not gte %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+			}
+		case "$lt":
+			if !(a < b) {
+				return fmt.Errorf("not lt %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+			}
+		case "$lte":
+			if !(a <= b) {
+				return fmt.Errorf("not lte %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+			}
+		case "$in":
+		default:
+			return fmt.Errorf("operator %s not supported", op)
+		}
+	} else if fieldType == "float" {
+		a, _ := utils.CaseFloat64(val1)
+		if op == "$in" || op == "$nin" {
+			if _, ok := val2.([]any); !ok {
+				return fmt.Errorf("val2 %s is not array", utils.CaseString(val2))
+			}
+			vals := val2.([]any)
+			found := false
+			for _, val := range vals {
+				b, _ := utils.CaseFloat64(val)
+				if op == "$in" && a == b {
+					found = true
+					break
+				}
+				if op == "$nin" && a == b {
+					return fmt.Errorf("in %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+				}
+			}
+			if op == "$in" && !found {
+				return fmt.Errorf("not in %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+			}
+			return nil
+		}
+		b, _ := utils.CaseFloat64(val1)
+		switch op {
+		case "$eq":
+			if a != b {
+				return fmt.Errorf("not equal %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+			}
+		case "$neq":
+			if a == b {
+				return fmt.Errorf("equal %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+			}
+		case "$gt":
+			if !(a > b) {
+				return fmt.Errorf("not gte %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+			}
+		case "$gte":
+			if !(a >= b) {
+				return fmt.Errorf("not gte %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+			}
+		case "$lt":
+			if !(a < b) {
+				return fmt.Errorf("not lt %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+			}
+		case "$lte":
+			if !(a <= b) {
+				return fmt.Errorf("not lte %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+			}
+		default:
+			return fmt.Errorf("operator %s not supported", op)
+		}
+	} else if fieldType == "string" {
+		a := utils.CaseString(val1)
+		if op == "$in" || op == "$nin" {
+			if _, ok := val2.([]any); !ok {
+				return fmt.Errorf("val2 %s is not array", utils.CaseString(val2))
+			}
+			vals := val2.([]any)
+			found := false
+			for _, val := range vals {
+				b := utils.CaseString(val)
+				if op == "$in" && a == b {
+					found = true
+					break
+				}
+				if op == "$nin" && a == b {
+					return fmt.Errorf("in %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+				}
+			}
+			if op == "$in" && !found {
+				return fmt.Errorf("not in %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+			}
+			return nil
+		}
+		b := utils.CaseString(val2)
+		switch op {
+		case "$eq":
+			if a != b {
+				return fmt.Errorf("not equal %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+			}
+		case "$neq":
+			if a == b {
+				return fmt.Errorf("equal %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+			}
+		case "$gt":
+			if !(a > b) {
+				return fmt.Errorf("not gte %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+			}
+		case "$gte":
+			if !(a >= b) {
+				return fmt.Errorf("not gte %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+			}
+		case "$lt":
+			if !(a < b) {
+				return fmt.Errorf("not lt %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+			}
+		case "$lte":
+			if !(a <= b) {
+				return fmt.Errorf("not lte %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+			}
+		default:
+			return fmt.Errorf("operator %s not supported", op)
+		}
+	} else {
+		return fmt.Errorf("field type %s not supported", fieldType)
 	}
 
-	return false
+	return nil
 }
 
-func isValid(a any, b any, op string) bool {
-	return a == b
-	// switch a := a.(type) {
-	// case int:
-
-	// }
-
-	return false
-}
-
-func validateInsert(rules []map[string]any, columns []string, values [][]any) error {
+func (me *Handler) validateInsert(rules []map[string]any, dbName string, tableName string, columns []string, values [][]any) error {
 	getFieldIdx := func(columns []string, field string) int {
 		for idx, col := range columns {
 			if col == field {
@@ -64,23 +228,79 @@ func validateInsert(rules []map[string]any, columns []string, values [][]any) er
 
 	for _, rule := range rules {
 		for key, authVal := range rule {
+			if auth, ok := authVal.(string); ok && strings.HasPrefix(auth, "data.") && strings.HasPrefix(key, "auth.") {
+				tmp := key
+				key = auth
+				authVal = tmp
+			}
 			if strings.HasPrefix(key, "data.") {
 				field := strings.Split(key, ".")[1]
-				if val, ok := authVal.(map[string]any); ok {
-					fmt.Printf("Data: %+v\n", val)
-					continue
-				}
-
 				idx := getFieldIdx(columns, field)
 				if idx == -1 {
 					return fmt.Errorf("data field %s not found", field)
 				}
+				fieldType := getFieldType(dbName, tableName, field)
+				if fieldType == "" {
+					return fmt.Errorf("field %s not found", field)
+				}
+
+				if val, ok := authVal.(map[string]any); ok {
+					fmt.Printf("TODO MAP: %+v\n", val)
+					continue
+				}
+
+				if val, ok := authVal.(string); ok && strings.HasPrefix(val, "auth.") {
+					claimField := strings.Split(val, ".")[1]
+					if me.Claim == nil {
+						return fmt.Errorf("unauth")
+					}
+					authVal, exist := me.Claim[claimField]
+					if !exist {
+						return fmt.Errorf("claim field %s not found", claimField)
+					}
+
+					for _, dataValues := range values {
+						dataValue := dataValues[idx]
+						err := isValid(dataValue, authVal, fieldType, "$eq")
+						if err != nil {
+							return err
+						}
+					}
+					continue
+				}
+
 				for _, dataValues := range values {
 					dataValue := dataValues[idx]
-					fmt.Println("Compare", dataValue, authVal, reflect.TypeOf(dataValue), reflect.TypeOf(authVal))
-					if isValid(dataValue, authVal, "=") {
-						return fmt.Errorf("not valid 2")
+					err := isValid(dataValue, authVal, fieldType, "$eq")
+					if err != nil {
+						return err
 					}
+				}
+				continue
+			}
+
+			if strings.HasPrefix(key, "auth.") {
+				claimField := strings.Split(key, ".")[1]
+				if me.Claim == nil {
+					return fmt.Errorf("unauth")
+				}
+				claimVal, exist := me.Claim[claimField]
+				if !exist {
+					return fmt.Errorf("claim field %s not found", claimField)
+				}
+				claimType := getValueType(claimVal)
+				if mapVal, ok := authVal.(map[string]any); ok {
+					for op, val := range mapVal {
+						err := isValid(claimVal, val, claimType, op)
+						if err != nil {
+							return err
+						}
+					}
+					continue
+				}
+				err := isValid(claimVal, authVal, claimType, "$eq")
+				if err != nil {
+					return err
 				}
 			}
 		}
@@ -129,7 +349,7 @@ func (me *Handler) insertAction(stmt *sqlparser.Insert) error {
 
 	rules := createAuthRules[db.Name+"."+tableName]
 	if len(rules) != 0 {
-		err := validateInsert(rules, columns, values)
+		err := me.validateInsert(rules, db.Name, tableName, columns, values)
 		if err != nil {
 			return err
 		}

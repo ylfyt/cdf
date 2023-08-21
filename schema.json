@@ -10,9 +10,9 @@
             {
               "action": "c",
               "rule": {
-                "data.user_id": 2,
+                "auth.user_id": "data.user_id",
                 "auth.age": {
-                  "$gte": 20
+                  "$in": [20]
                 }
               }
             }
