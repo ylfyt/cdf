@@ -4,8 +4,10 @@ import (
 	"cdf/models"
 	"cdf/utils"
 	"fmt"
-	"github.com/xwb1989/sqlparser"
 	"reflect"
+
+	"github.com/xwb1989/sqlparser"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func parseTableExprs(expr sqlparser.TableExpr, tables *models.OrderMap[string, *models.QueryTable], conds []*models.Cond, join string) {
@@ -39,10 +41,17 @@ func parseDependencyConds(query *models.OrderMap[string, *models.QueryTable]) er
 		newConds := []*models.Cond{}
 		deps := []*models.Cond{}
 		for _, cond := range table.Conds {
-			left := query.Get(cond.Left.Qualifier)
-			right := query.Get(cond.Right.Qualifier)
-			if left == nil || right == nil {
-				return fmt.Errorf("table not found")
+			if cond.Left.Value == nil {
+				left := query.Get(cond.Left.Qualifier)
+				if left == nil {
+					return fmt.Errorf("table not found")
+				}
+			}
+			if cond.Right.Value == nil {
+				right := query.Get(cond.Right.Qualifier)
+				if right == nil {
+					return fmt.Errorf("table not found")
+				}
 			}
 			if cond.Left.Qualifier != cond.Right.Qualifier {
 				deps = append(deps, cond)
@@ -220,9 +229,15 @@ func buildKey(table *models.QueryTable, qua string, value map[string]any) string
 	for _, cond := range table.DepConds {
 		if cond.Left.Qualifier == qua {
 			fieldValue := value[cond.Left.Field]
+			if _id, ok := fieldValue.(primitive.ObjectID); ok {
+				fieldValue = _id.Hex()
+			}
 			key += fmt.Sprint(fieldValue) + "_"
 		} else if cond.Right.Qualifier == qua {
 			fieldValue := value[cond.Right.Field]
+			if _id, ok := fieldValue.(primitive.ObjectID); ok {
+				fieldValue = _id.Hex()
+			}
 			key += fmt.Sprint(fieldValue) + "_"
 		}
 	}
@@ -231,17 +246,52 @@ func buildKey(table *models.QueryTable, qua string, value map[string]any) string
 }
 
 func (me *Handler) selectAction(stmt *sqlparser.Select) (any, error) {
+	query, err := parseFrom(stmt)
+	if err != nil {
+		return nil, err
+	}
+	if len(query.Keys) == 0 {
+		return nil, fmt.Errorf("from clause cannot empty")
+	}
+
+	// qualifier -> as -> field
 	fields := parseSelectField(stmt)
-	_ = fields
+	for qua := range fields {
+		if qua == "" {
+			if len(fields) <= 1 {
+				continue
+			}
+			if len(query.Keys) > 1 {
+				return nil, fmt.Errorf("qualifier is must be defined")
+			}
+			continue
+		}
+		_, exist := query.GetExist(qua)
+		if !exist {
+			return nil, fmt.Errorf("qualifier %s is not found", qua)
+		}
+	}
 
 	var wheres []*models.Cond
 	if stmt.Where != nil {
 		wheres = utils.ParseJoinCondition(stmt.Where.Expr)
 	}
-
-	query, err := parseFrom(stmt)
-	if err != nil {
-		return nil, err
+	for _, where := range wheres {
+		if len(query.Keys) > 1 {
+			if where.Left.Field != "" && where.Left.Qualifier == "" {
+				return nil, fmt.Errorf("qualifier cannot empty when tables > 1")
+			}
+			if where.Right.Field != "" && where.Right.Qualifier == "" {
+				return nil, fmt.Errorf("qualifier cannot empty when tables > 1")
+			}
+		} else {
+			if where.Left.Qualifier == "" {
+				where.Left.Qualifier = query.Keys[0]
+			}
+			if where.Right.Qualifier == "" {
+				where.Right.Qualifier = query.Keys[0]
+			}
+		}
 	}
 
 	err = parseDependencyConds(query)
@@ -285,6 +335,20 @@ func (me *Handler) selectAction(stmt *sqlparser.Select) (any, error) {
 			if joinMap[key] == nil {
 				joinMap[key] = make([]any, 0)
 			}
+			// for field := range val {
+			// 	quaFields := fields[qua]
+			// 	found := false
+			// 	for _, reqField := range quaFields {
+			// 		if reqField, ok := reqField.(string); ok && reqField == field {
+			// 			found = true
+			// 			break
+			// 		}
+			// 	}
+			// 	if !found {
+			// 		fmt.Println("Data:", field)
+			// 		delete(val, field)
+			// 	}
+			// }
 			joinMap[key] = append(joinMap[key], val)
 		}
 		newVal := []map[string]any{}

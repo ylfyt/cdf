@@ -6,6 +6,8 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func MyRead(conn *sql.DB, table *models.QueryTable, wheres []*models.Cond) ([]map[string]any, error) {
@@ -33,7 +35,11 @@ func MyRead(conn *sql.DB, table *models.QueryTable, wheres []*models.Cond) ([]ma
 				} else {
 					right := ""
 					for idx, val := range vals {
-						queryParams = append(queryParams, val)
+						if _id, ok := val.(primitive.ObjectID); ok {
+							queryParams = append(queryParams, _id.String())
+						} else {
+							queryParams = append(queryParams, val)
+						}
 						right += "?"
 						if idx != len(vals)-1 {
 							right += ","
@@ -52,7 +58,11 @@ func MyRead(conn *sql.DB, table *models.QueryTable, wheres []*models.Cond) ([]ma
 				} else {
 					right := ""
 					for idx, val := range vals {
-						queryParams = append(queryParams, val)
+						if _id, ok := val.(primitive.ObjectID); ok {
+							queryParams = append(queryParams, _id.Hex())
+						} else {
+							queryParams = append(queryParams, val)
+						}
 						right += "?"
 						if idx != len(vals)-1 {
 							right += ","

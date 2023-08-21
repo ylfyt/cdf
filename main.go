@@ -23,29 +23,31 @@ var DELETE2 = `DELETE FROM store WHERE id = 191`
 var DELETE3 = `DELETE FROM product WHERE _id = '64e0671c8a56912f4d847fb6'`
 
 var SELECT1 = `
-	SELECT
-		*
-	FROM
-		store
+	SELECT * FROM product p JOIN inventory i ON p._id = i.product_id
 `
 
 var SELECT_QUERY = `
-	SELECT 
-		s.*,
+	SELECT
+		s.id,
+		s.name,
 		u.name as username,
-		u.*
+		o.product_id
 	FROM 
 		store s
-		JOIN users u ON s.user_id = u.id
+		LEFT JOIN users u ON s.user_id = u.id
 		LEFT JOIN orders o ON o.user_id = u.id
+	WHERE
+		u.id > 1
 `
 
 var SELECT_QUERY2 = `
 	SELECT 
-		*
+		s.id,
+		s.name,
+		p.description 
 	FROM 
 		store s	
-		JOIN product p ON p.store_id = s.id
+		LEFT JOIN product p ON p.store_id = s.id
 		
 `
 
@@ -70,9 +72,7 @@ func main() {
 
 	core.Start(&schema)
 
-	stmt, err := sqlparser.Parse(`
-		SELECT * FROM product WHERE _id = '64bef4d78c548ee82bc69fd3'
-	`)
+	stmt, err := sqlparser.Parse(SELECT1)
 	if err != nil {
 		fmt.Println("err", err)
 		return

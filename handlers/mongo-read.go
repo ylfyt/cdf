@@ -3,7 +3,6 @@ package handlers
 import (
 	"cdf/models"
 	"context"
-	"fmt"
 	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -78,7 +77,6 @@ func MongoRead(conn *mongo.Database, table *models.QueryTable, wheres []*models.
 		}
 		result = append(result, val)
 	}
-	fmt.Println("Data:", result)
 
 	return result, nil
 }
