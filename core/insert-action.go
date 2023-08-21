@@ -227,11 +227,11 @@ func (me *Handler) validateInsert(rules []map[string]any, dbName string, tableNa
 	}
 
 	for _, rule := range rules {
-		for key, authVal := range rule {
-			if auth, ok := authVal.(string); ok && strings.HasPrefix(auth, "data.") && strings.HasPrefix(key, "auth.") {
+		for key, authRule := range rule {
+			if auth, ok := authRule.(string); ok && strings.HasPrefix(auth, "data.") && strings.HasPrefix(key, "auth.") {
 				tmp := key
 				key = auth
-				authVal = tmp
+				authRule = tmp
 			}
 			if strings.HasPrefix(key, "data.") {
 				field := strings.Split(key, ".")[1]
@@ -244,38 +244,40 @@ func (me *Handler) validateInsert(rules []map[string]any, dbName string, tableNa
 					return fmt.Errorf("field %s not found", field)
 				}
 
-				if val, ok := authVal.(map[string]any); ok {
-					fmt.Printf("TODO MAP: %+v\n", val)
-					continue
-				}
+				for _, dataValues := range values {
+					dataValue := dataValues[idx]
 
-				if val, ok := authVal.(string); ok && strings.HasPrefix(val, "auth.") {
-					claimField := strings.Split(val, ".")[1]
-					if me.Claim == nil {
-						return fmt.Errorf("unauth")
+					if val, ok := authRule.(map[string]any); ok {
+						for op, val := range val {
+							err := isValid(dataValue, val, fieldType, op)
+							if err != nil {
+								return err
+							}
+						}
+						continue
 					}
-					authVal, exist := me.Claim[claimField]
-					if !exist {
-						return fmt.Errorf("claim field %s not found", claimField)
-					}
+					if val, ok := authRule.(string); ok && strings.HasPrefix(val, "auth.") {
+						claimField := strings.Split(val, ".")[1]
+						if me.Claim == nil {
+							return fmt.Errorf("unauth")
+						}
+						authVal, exist := me.Claim[claimField]
+						if !exist {
+							return fmt.Errorf("claim field %s not found", claimField)
+						}
 
-					for _, dataValues := range values {
-						dataValue := dataValues[idx]
 						err := isValid(dataValue, authVal, fieldType, "$eq")
 						if err != nil {
 							return err
 						}
 					}
-					continue
-				}
 
-				for _, dataValues := range values {
-					dataValue := dataValues[idx]
-					err := isValid(dataValue, authVal, fieldType, "$eq")
+					err := isValid(dataValue, authRule, fieldType, "$eq")
 					if err != nil {
 						return err
 					}
 				}
+
 				continue
 			}
 
@@ -289,7 +291,7 @@ func (me *Handler) validateInsert(rules []map[string]any, dbName string, tableNa
 					return fmt.Errorf("claim field %s not found", claimField)
 				}
 				claimType := getValueType(claimVal)
-				if mapVal, ok := authVal.(map[string]any); ok {
+				if mapVal, ok := authRule.(map[string]any); ok {
 					for op, val := range mapVal {
 						err := isValid(claimVal, val, claimType, op)
 						if err != nil {
@@ -298,7 +300,7 @@ func (me *Handler) validateInsert(rules []map[string]any, dbName string, tableNa
 					}
 					continue
 				}
-				err := isValid(claimVal, authVal, claimType, "$eq")
+				err := isValid(claimVal, authRule, claimType, "$eq")
 				if err != nil {
 					return err
 				}
