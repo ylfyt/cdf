@@ -17,7 +17,7 @@ var INSERT_QUERY = `INSERT INTO orders (name, email) values ('Yudi', 'yudi@gmail
 var INSERT2 = `INSERT INTO store (user_id, name) VALUES (3, 'Toko 3')`
 
 var DELETE_QUERY = `DELETE FROM stores WHERE _id = '64bef4d717b947ddb0dc725f'`
-var UPDATE_QUERY = `UPDATE orders SET user_id = 'example@gmail.com' WHERE _id = '64bef4d78c548ee82bc69fd3'`
+var UPDATE_QUERY = `UPDATE product SET description = 'Updated Description 1' WHERE name = 'Product 1'`
 
 var DELETE2 = `DELETE FROM store WHERE id = 191`
 var DELETE3 = `DELETE FROM product WHERE _id = '64e0671c8a56912f4d847fb6'`
@@ -70,7 +70,7 @@ func main() {
 
 	core.Start(&schema)
 
-	stmt, err := sqlparser.Parse(DELETE2)
+	stmt, err := sqlparser.Parse(UPDATE_QUERY)
 	if err != nil {
 		fmt.Println("err", err)
 		return

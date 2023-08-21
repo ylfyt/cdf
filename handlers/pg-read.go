@@ -86,9 +86,9 @@ func PgRead(conn *sql.DB, table *models.QueryTable, wheres []*models.Cond) ([]ma
 		),
 	)
 
-	fmt.Println()
-	fmt.Printf("==QUERY==: %+v\n", query)
-	fmt.Println()
+	fmt.Println("=== READ PG ===")
+	fmt.Println(query)
+	fmt.Println("*** READ PG ***")
 
 	rows, err := conn.Query(query, queryParams...)
 	if err != nil {

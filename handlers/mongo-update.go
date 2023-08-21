@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"cdf/models"
 	"context"
 	"fmt"
 
@@ -9,22 +10,35 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func MongoUpdate(conn *mongo.Database, table string, wheres map[string]any, values map[string]any) (int, error) {
+func MongoUpdate(conn *mongo.Database, table string, wheres []*models.Cond, values map[string]any) (int, error) {
 	coll := conn.Collection(table)
 	if coll == nil {
 		return 0, fmt.Errorf("collection %s not found", table)
 	}
 
-	if _id, exist := wheres["_id"]; exist {
-		if _id, ok := _id.(string); ok {
-			if objectID, err := primitive.ObjectIDFromHex(_id); err == nil {
-				wheres["_id"] = objectID
+	filter := map[string]any{}
+	for _, cond := range wheres {
+		if cond.Left.Value != nil && cond.Right.Value != nil {
+			//TODO ??
+			continue
+		}
+		op := parseOp(cond.Op)
+		field := cond.Left.Field
+		val := cond.Right.Value
+		if field == "_id" {
+			if _id, ok := val.(string); ok {
+				if objectID, err := primitive.ObjectIDFromHex(_id); err == nil {
+					val = objectID
+				}
 			}
+		}
+		filter[field] = bson.M{
+			op: val,
 		}
 	}
 
 	update := bson.M{"$set": values}
-	res, err := coll.UpdateMany(context.TODO(), wheres, update)
+	res, err := coll.UpdateMany(context.TODO(), filter, update)
 	if err != nil {
 		return 0, err
 	}

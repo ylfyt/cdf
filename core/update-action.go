@@ -1,6 +1,7 @@
 package core
 
 import (
+	"cdf/models"
 	"cdf/utils"
 	"errors"
 	"fmt"
@@ -9,9 +10,9 @@ import (
 )
 
 func (me *Handler) updateAction(stmt *sqlparser.Update) (any, error) {
-	wheres := map[string]any{}
+	var wheres []*models.Cond
 	if stmt.Where != nil {
-		wheres = getColumnValuesFromWhere(stmt.Where.Expr)
+		wheres = utils.ParseJoinCondition(stmt.Where.Expr)
 	}
 	if len(wheres) == 0 {
 		return nil, errors.New("updating table without where expr is not allowed")

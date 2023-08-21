@@ -108,5 +108,16 @@ func (me *Handler) deleteAction(stmt *sqlparser.Delete) (int, error) {
 			return 0, err
 		}
 	}
+	for fieldName := range schema.Databases[db.Name].Tables[tableName].Fields {
+		fieldRules := createAuthRules[db.Name+"."+tableName+"."+fieldName]
+		if len(fieldRules) != 0 {
+			err := me.validateRules(fieldRules, db.Name, tableName, utils.GetMapKeys(schema.Databases[db.Name].Tables[tableName].Fields), nil, nil)
+			if err != nil {
+				return 0, err
+			}
+		}
+	}
+	// === END AUTH
+
 	return driver.delete(db.Conn, tableName, wheres)
 }

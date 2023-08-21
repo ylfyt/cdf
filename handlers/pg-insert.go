@@ -22,6 +22,10 @@ func PgInsert(conn *sql.DB, table string, columns []string, values [][]any) erro
 
 	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES %s", table, strings.Join(columns, ","), strings.Join(valueStrings, ", "))
 
+	fmt.Println("=== INSERT PG ===")
+	fmt.Println(query)
+	fmt.Println("*** INSERT PG ***")
+
 	_, err := conn.Exec(query, valueArgs...)
 	return err
 }

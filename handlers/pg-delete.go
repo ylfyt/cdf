@@ -70,6 +70,10 @@ func PgDelete(conn *sql.DB, table string, wheres []*models.Cond) (int, error) {
 		fmt.Sprintf("WHERE %s", strings.Join(whereQueries, " AND ")),
 	))
 
+	fmt.Println("=== DELETE PG ===")
+	fmt.Println(query)
+	fmt.Println("*** DELETE PG ***")
+
 	res, err := conn.Exec(query, queryParams...)
 	if err != nil {
 		return 0, err
