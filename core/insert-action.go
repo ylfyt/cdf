@@ -67,11 +67,11 @@ func isValid(val1 any, val2 any, fieldType string, op string) error {
 					break
 				}
 				if op == "$nin" && a == b {
-					return fmt.Errorf("in %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+					return fmt.Errorf("%s in %s", utils.CaseString(val1), utils.CaseString(val2))
 				}
 			}
 			if op == "$in" && !found {
-				return fmt.Errorf("not in %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+				return fmt.Errorf("%s not in %s", utils.CaseString(val1), utils.CaseString(val2))
 			}
 			return nil
 		}
@@ -79,27 +79,27 @@ func isValid(val1 any, val2 any, fieldType string, op string) error {
 		switch op {
 		case "$eq":
 			if a != b {
-				return fmt.Errorf("not equal %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+				return fmt.Errorf("%s not equal %s", utils.CaseString(val1), utils.CaseString(val2))
 			}
 		case "$neq":
 			if a == b {
-				return fmt.Errorf("equal %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+				return fmt.Errorf("%s equal %s", utils.CaseString(val1), utils.CaseString(val2))
 			}
 		case "$gt":
 			if !(a > b) {
-				return fmt.Errorf("not gte %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+				return fmt.Errorf("%s not gte %s", utils.CaseString(val1), utils.CaseString(val2))
 			}
 		case "$gte":
 			if !(a >= b) {
-				return fmt.Errorf("not gte %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+				return fmt.Errorf("%s not gte %s", utils.CaseString(val1), utils.CaseString(val2))
 			}
 		case "$lt":
 			if !(a < b) {
-				return fmt.Errorf("not lt %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+				return fmt.Errorf("%s not lt %s", utils.CaseString(val1), utils.CaseString(val2))
 			}
 		case "$lte":
 			if !(a <= b) {
-				return fmt.Errorf("not lte %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+				return fmt.Errorf("%s not lte %s", utils.CaseString(val1), utils.CaseString(val2))
 			}
 		case "$in":
 		default:
@@ -132,28 +132,29 @@ func isValid(val1 any, val2 any, fieldType string, op string) error {
 		switch op {
 		case "$eq":
 			if a != b {
-				return fmt.Errorf("not equal %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+				return fmt.Errorf("%s not equal %s", utils.CaseString(val1), utils.CaseString(val2))
 			}
 		case "$neq":
 			if a == b {
-				return fmt.Errorf("equal %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+				return fmt.Errorf("%s equal %s", utils.CaseString(val1), utils.CaseString(val2))
 			}
 		case "$gt":
 			if !(a > b) {
-				return fmt.Errorf("not gte %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+				return fmt.Errorf("%s not gte %s", utils.CaseString(val1), utils.CaseString(val2))
 			}
 		case "$gte":
 			if !(a >= b) {
-				return fmt.Errorf("not gte %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+				return fmt.Errorf("%s not gte %s", utils.CaseString(val1), utils.CaseString(val2))
 			}
 		case "$lt":
 			if !(a < b) {
-				return fmt.Errorf("not lt %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+				return fmt.Errorf("%s not lt %s", utils.CaseString(val1), utils.CaseString(val2))
 			}
 		case "$lte":
 			if !(a <= b) {
-				return fmt.Errorf("not lte %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+				return fmt.Errorf("%s not lte %s", utils.CaseString(val1), utils.CaseString(val2))
 			}
+		case "$in":
 		default:
 			return fmt.Errorf("operator %s not supported", op)
 		}
@@ -184,28 +185,29 @@ func isValid(val1 any, val2 any, fieldType string, op string) error {
 		switch op {
 		case "$eq":
 			if a != b {
-				return fmt.Errorf("not equal %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+				return fmt.Errorf("%s not equal %s", utils.CaseString(val1), utils.CaseString(val2))
 			}
 		case "$neq":
 			if a == b {
-				return fmt.Errorf("equal %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+				return fmt.Errorf("%s equal %s", utils.CaseString(val1), utils.CaseString(val2))
 			}
 		case "$gt":
 			if !(a > b) {
-				return fmt.Errorf("not gte %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+				return fmt.Errorf("%s not gte %s", utils.CaseString(val1), utils.CaseString(val2))
 			}
 		case "$gte":
 			if !(a >= b) {
-				return fmt.Errorf("not gte %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+				return fmt.Errorf("%s not gte %s", utils.CaseString(val1), utils.CaseString(val2))
 			}
 		case "$lt":
 			if !(a < b) {
-				return fmt.Errorf("not lt %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+				return fmt.Errorf("%s not lt %s", utils.CaseString(val1), utils.CaseString(val2))
 			}
 		case "$lte":
 			if !(a <= b) {
-				return fmt.Errorf("not lte %s | %s", utils.CaseString(val1), utils.CaseString(val2))
+				return fmt.Errorf("%s not lte %s", utils.CaseString(val1), utils.CaseString(val2))
 			}
+		case "$in":
 		default:
 			return fmt.Errorf("operator %s not supported", op)
 		}
@@ -216,7 +218,7 @@ func isValid(val1 any, val2 any, fieldType string, op string) error {
 	return nil
 }
 
-func (me *Handler) validateInsert(rules []map[string]any, dbName string, tableName string, columns []string, values [][]any) error {
+func (me *Handler) validateInsert(rules []map[string]any, dbName string, tableName string, columns []string, inputValues [][]any) error {
 	getFieldIdx := func(columns []string, field string) int {
 		for idx, col := range columns {
 			if col == field {
@@ -228,12 +230,15 @@ func (me *Handler) validateInsert(rules []map[string]any, dbName string, tableNa
 
 	for _, rule := range rules {
 		for key, authRule := range rule {
-			if auth, ok := authRule.(string); ok && strings.HasPrefix(auth, "data.") && strings.HasPrefix(key, "auth.") {
+			if rule, ok := authRule.(string); ok && strings.HasPrefix(rule, "data.") {
 				tmp := key
-				key = auth
+				key = rule
 				authRule = tmp
 			}
 			if strings.HasPrefix(key, "data.") {
+				if tableName == "" {
+					return fmt.Errorf("in db ctx")
+				}
 				field := strings.Split(key, ".")[1]
 				idx := getFieldIdx(columns, field)
 				if idx == -1 {
@@ -244,7 +249,7 @@ func (me *Handler) validateInsert(rules []map[string]any, dbName string, tableNa
 					return fmt.Errorf("field %s not found", field)
 				}
 
-				for _, dataValues := range values {
+				for _, dataValues := range inputValues {
 					dataValue := dataValues[idx]
 
 					if val, ok := authRule.(map[string]any); ok {
@@ -347,15 +352,32 @@ func (me *Handler) insertAction(stmt *sqlparser.Insert) error {
 	if db == nil {
 		return fmt.Errorf("table %s not found", tableName)
 	}
-	// TODO: auth db
 
-	rules := createAuthRules[db.Name+"."+tableName]
-	if len(rules) != 0 {
-		err := me.validateInsert(rules, db.Name, tableName, columns, values)
+	// === AUTH
+	dbRules := createAuthRules[db.Name]
+	if len(dbRules) != 0 {
+		err := me.validateInsert(dbRules, db.Name, "", nil, nil)
 		if err != nil {
 			return err
 		}
 	}
+	tableRules := createAuthRules[db.Name+"."+tableName]
+	if len(tableRules) != 0 {
+		err := me.validateInsert(tableRules, db.Name, tableName, columns, values)
+		if err != nil {
+			return err
+		}
+	}
+	for fieldName := range schema.Databases[db.Name].Tables[tableName].Fields {
+		fieldRules := createAuthRules[db.Name+"."+tableName+"."+fieldName]
+		if len(fieldRules) != 0 {
+			err := me.validateInsert(fieldRules, db.Name, tableName, columns, values)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	// === END AUTH
 
 	driver := drivers[db.Type]
 	return driver.insert(db.Conn, tableName, columns, values)

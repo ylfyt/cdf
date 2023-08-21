@@ -4,6 +4,16 @@
       "type": "PostgreSQL",
       "name": "coba",
       "connectionString": "postgresql://postgres:postgres@localhost/coba?sslmode=disable",
+      "auth": [
+        {
+          "action": "c",
+          "rule": {
+            "auth.user_id": {
+              "$neq": null
+            }
+          }
+        }
+      ],
       "tables": {
         "store": {
           "auth": [
@@ -12,7 +22,9 @@
               "rule": {
                 "auth.user_id": "data.user_id",
                 "auth.age": {
-                  "$in": [20]
+                  "$in": [
+                    20
+                  ]
                 }
               }
             }
@@ -27,7 +39,6 @@
                 {
                   "action": "cud",
                   "rule": {
-                    "$user_id": "auth.user_id",
                     "auth.age": {
                       "$gte": 40
                     }
