@@ -1,0 +1,40 @@
+@startuml schema
+
+skinparam linetype ortho
+
+entity user {
+  * id
+  --
+  first_name
+  last_name
+  username
+  email
+  password
+  created_at
+  updated_at
+}
+
+entity user_detail {
+  * user_id
+  --
+  address
+  phone_numbers
+  created_at
+  updated_at
+}
+
+entity store {
+  * id
+  --
+  name
+  address
+  phone_numbers
+  user_id
+  created_at
+  updated_at
+}
+
+user ||--o| user_detail
+user ||--o{ store
+
+@enduml

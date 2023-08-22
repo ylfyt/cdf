@@ -1,0 +1,34 @@
+@startuml schema
+
+skinparam linetype ortho
+
+entity order {
+  *id
+  --
+  status
+  user_id
+  updated_at
+}
+
+entity order_item {
+  * order_id
+  * product_sku
+  --
+  quantity
+  updated_at
+}
+
+entity payment {
+  *id
+  --
+  order_id
+  status
+  currency
+  amount
+  type
+  created_at
+  updated_at
+}
+
+
+@enduml
