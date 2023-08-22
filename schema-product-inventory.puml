@@ -1,0 +1,60 @@
+@startuml schema
+
+skinparam linetype ortho
+
+entity store {
+  * id
+  --
+  name
+  address
+  phone_numbers
+  user_id
+  created_at
+  updated_at
+}
+
+entity product {
+  * id
+  --
+  name
+  description
+  price
+  store_id
+  category_id
+  created_at
+  updated_at
+}
+
+entity product_inventory {
+  * id
+  --
+  product_id
+  stock
+  created_at
+  updated_at
+}
+
+entity category {
+  * id
+  --
+  name
+  label
+  created_at
+  updated_at
+}
+
+entity product_category {
+  * product_id
+  * category_id
+  --
+  created_at
+  updated_at
+}
+
+store ||--o{ product
+product ||-o{ product_category
+product ||--o{ product_inventory
+product_category |o--|| category
+
+
+@enduml

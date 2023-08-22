@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/xwb1989/sqlparser"
 )
@@ -44,6 +45,11 @@ func ParseValue(expr sqlparser.Expr) (any, error) {
 		}
 
 		return nil, nil
+	case *sqlparser.FuncExpr:
+		if val.Name.CompliantName() == "NOW" {
+			return time.Now(), nil
+		}
+		return nil, errors.New("unsupported function")
 	default:
 		return nil, errors.New("unsupported value type")
 	}

@@ -52,7 +52,7 @@ func getFieldType(dbName string, tableName string, fieldName string) string {
 }
 
 func isValid(val1 any, val2 any, fieldType string, op string) error {
-	if fieldType == "int" {
+	if fieldType == "int" || fieldType == "int64" {
 		a, _ := utils.CaseInt64(val1)
 		if op == "$in" || op == "$nin" {
 			if _, ok := val2.([]any); !ok {
@@ -105,7 +105,7 @@ func isValid(val1 any, val2 any, fieldType string, op string) error {
 		default:
 			return fmt.Errorf("operator %s not supported", op)
 		}
-	} else if fieldType == "float" {
+	} else if fieldType == "float" || fieldType == "float64" {
 		a, _ := utils.CaseFloat64(val1)
 		if op == "$in" || op == "$nin" {
 			if _, ok := val2.([]any); !ok {
