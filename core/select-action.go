@@ -159,31 +159,6 @@ func applyWheres(queries *models.OrderMap[string, *models.QueryTable], wheres []
 	return nil
 }
 
-// func shouldJoin(rec1 map[string]any, rec2 map[string]any, conds []*models.Cond) bool {
-
-// }
-
-// func nestedJoin(data [][]map[string]any, deps [][]*models.Cond) []map[string]any {
-// 	if len(data) == 0 {
-// 		return nil
-// 	}
-// 	if len(data) == 1 {
-// 		return data[0]
-// 	}
-
-// 	for len(data) > 1 {
-// 		res1 := data[0]
-// 		res2 := data[1]
-// 		for _, x := range res1 {
-// 			for _, y := range res2 {
-
-// 			}
-// 		}
-// 	}
-
-// 	return nil
-// }
-
 func applyDepWheres(depConds []*models.Cond, qua string, wheres *[]*models.Cond, rawValue map[string][]map[string]any) {
 	for _, cond := range depConds {
 		if cond.Left.Value != nil || cond.Right.Value != nil {
@@ -365,6 +340,8 @@ func (me *Handler) selectAction(stmt *sqlparser.Select) (any, error) {
 		}
 		raw[targetQua] = newVal
 	}
+
+	// TODO: RULES FOR SELECT
 
 	return raw[query.Keys[0]], nil
 }

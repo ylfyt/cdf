@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	github.com/go-sql-driver/mysql v1.7.1
+	github.com/gocql/gocql v1.5.2
 	github.com/golang-jwt/jwt/v5 v5.0.0
 	github.com/lib/pq v1.10.9
 	github.com/xwb1989/sqlparser v0.0.0-20180606152119-120387863bf2
@@ -11,7 +12,6 @@ require (
 )
 
 require (
-	github.com/gocql/gocql v1.5.2 // indirect
 	github.com/golang/snappy v0.0.3 // indirect
 	github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed // indirect
 	github.com/klauspost/compress v1.13.6 // indirect
