@@ -23,18 +23,6 @@ entity user_detail {
   updated_at
 }
 
-entity store {
-  * id
-  --
-  name
-  address
-  phone_numbers
-  user_id
-  created_at
-  updated_at
-}
-
 user ||--o| user_detail
-user ||--o{ store
 
 @enduml

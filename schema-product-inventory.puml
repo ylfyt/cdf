@@ -2,17 +2,6 @@
 
 skinparam linetype ortho
 
-entity store {
-  * id
-  --
-  name
-  address
-  phone_numbers
-  user_id
-  created_at
-  updated_at
-}
-
 entity product {
   * id
   --
@@ -51,7 +40,6 @@ entity product_category {
   updated_at
 }
 
-store ||--o{ product
 product ||-o{ product_category
 product ||--o{ product_inventory
 product_category |o--|| category

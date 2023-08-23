@@ -1,7 +1,9 @@
 package utils
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -31,6 +33,7 @@ func ParseValue(expr sqlparser.Expr) (any, error) {
 	case *sqlparser.NullVal:
 		return nil, nil
 	case *sqlparser.ConvertExpr:
+		fmt.Printf("Convert %+v | %+v\n", val.Expr, val.Type)
 		if expr, ok := val.Expr.(*sqlparser.SQLVal); ok {
 			if val.Type.Type == "signed" {
 				castedVal, _ := strconv.Atoi(string(expr.Val))
@@ -39,6 +42,14 @@ func ParseValue(expr sqlparser.Expr) (any, error) {
 			if val.Type.Type == "unsigned" {
 				castedVal, _ := strconv.ParseUint(string(expr.Val), 10, 64)
 				return castedVal, nil
+			}
+			if val.Type.Type == "json" {
+				var test any 
+				err := json.Unmarshal(expr.Val, &test)
+				if err != nil {
+					return nil, err
+				}
+				return test, nil
 			}
 
 			return string(expr.Val), nil

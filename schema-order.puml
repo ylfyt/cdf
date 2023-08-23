@@ -30,5 +30,7 @@ entity payment {
   updated_at
 }
 
+order ||--|{ order_item
+order ||--o| payment
 
 @enduml

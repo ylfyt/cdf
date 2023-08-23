@@ -1,9 +1,9 @@
 {
   "databases": {
-    "db_store": {
-      "type": "MySQL",
-      "name": "db_store",
-      "connectionString": "root:root@tcp(127.0.0.1:3306)/db_store",
+    "coba": {
+      "type": "PostgreSQL",
+      "name": "coba",
+      "connectionString": "postgresql://postgres:postgres@localhost/coba?sslmode=disable",
       "auth": [
         {
           "action": "c",
@@ -16,21 +16,52 @@
       ],
       "tables": {
         "store": {
+          "auth": [
+            {
+              "action": "c",
+              "rule": {
+                "auth.user_id": "data.user_id"
+              }
+            },
+            {
+              "action": "du",
+              "rule": {
+                "$user_id": "auth.user_id",
+                "data.user_id": "auth.user_id"
+              }
+            }
+          ],
           "name": "store",
           "fields": {
             "id": "int",
             "user_id": {
               "type": "int",
-              "ref": "users.id"
+              "ref": "users.id",
+              "auth": [
+                {
+                  "action": "cud",
+                  "rule": {}
+                }
+              ]
             },
             "name": "string",
             "description": "string",
             "address": "string"
           }
-        }, 
-        "store_detail": {
-          "name": "store_detail",
-          "fields": {}
+        },
+        "users": {
+          "name": "users",
+          "fields": {
+            "id": "int",
+            "name": "string",
+            "email": "string",
+            "gender": "string",
+            "ip_address": "string",
+            "password": {
+              "type": "string",
+              "hide": true
+            }
+          }
         }
       }
     },

@@ -73,7 +73,15 @@ func main() {
 	core.Start(&schema)
 
 	stmt, err := sqlparser.Parse(`
-		SELECT * FROM store s JOIN users u ON s.user_id = u.id
+	UPDATE orders 
+	SET 
+		updated_at = NOW(),
+		payment = CONVERT(
+			'{"currency": "IDR", "amount": 20000, "type": "BANK-VA", "status": "PAID"}',
+			JSON
+		)
+	WHERE 
+		_id = '64e553fdd104247cdf7ce800'
 	`)
 	if err != nil {
 		fmt.Println("err", err)
@@ -89,7 +97,7 @@ func main() {
 	if err != nil {
 		fmt.Println("err", err)
 		return
-	}
+	}	
 	fmt.Printf("Data: %+v\n", res)
 	// api.Start()
 }
