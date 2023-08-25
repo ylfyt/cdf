@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cdf/api"
 	"cdf/core"
 	"cdf/models"
 	"cdf/utils"
@@ -71,6 +72,7 @@ func main() {
 	}
 
 	core.Start(&schema)
+	api.Start()
 
 	stmt, err := sqlparser.Parse(`
 	UPDATE orders 
@@ -99,5 +101,5 @@ func main() {
 		return
 	}	
 	fmt.Printf("Data: %+v\n", res)
-	// api.Start()
+	
 }

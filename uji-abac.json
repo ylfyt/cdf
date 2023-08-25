@@ -1,0 +1,24 @@
+{
+  "fields": {
+    "salary": {
+      "type": "int",
+      "auth": [
+        {
+          "action": "cu",
+          "rule": {
+            "auth.department": {
+              "$in": [
+                "FINANCE"
+              ]
+            },
+            "auth.role": {
+              "$in": [
+                "ADMIN"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}
