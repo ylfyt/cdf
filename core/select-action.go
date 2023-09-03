@@ -5,6 +5,7 @@ import (
 	"cdf/utils"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/xwb1989/sqlparser"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -75,43 +76,86 @@ func parseFrom(stmt *sqlparser.Select) (*models.OrderMap[string, *models.QueryTa
 	return &queryTables, nil
 }
 
+type Field struct {
+	Qualifier string
+	Table     string
+	As        string
+	Field     string
+	Value     any
+}
+
 // qualifier -> as -> field
-func parseSelectField(stmt *sqlparser.Select) map[string]map[string]any {
-	fields := map[string]map[string]any{}
+func parseSelectField(stmt *sqlparser.Select, query *models.OrderMap[string, *models.QueryTable]) ([]*Field, error) {
+	newFields := []*Field{}
 	for _, expr := range stmt.SelectExprs {
 		if expr, ok := expr.(*sqlparser.StarExpr); ok {
 			qua := expr.TableName.Name.String()
-			if fields[qua] == nil {
-				fields[qua] = make(map[string]any)
+			if qua == "" && len(query.Keys) != 1 {
+				return nil, fmt.Errorf("qualifier is must be defined")
 			}
+			var table *models.QueryTable
+			if len(query.Keys) == 1 {
+				table = query.Get(query.Keys[0])
+			} else {
+				table = query.Get(qua)
+			}
+			if table == nil {
+				return nil, fmt.Errorf("table for qualifier %s is not found", qua)
+			}
+			if qua == "" {
+				qua = table.Name
+			}
+			field := &Field{
+				Qualifier: qua,
+				Table:     table.Name,
+				As:        "",
+				Field:     "*",
+			}
+			newFields = append(newFields, field)
 			continue
 		}
 		if aliased, ok := expr.(*sqlparser.AliasedExpr); ok {
 			if val, ok := aliased.Expr.(*sqlparser.SQLVal); ok {
 				val, _ := utils.ParseValue(val)
-				if fields["=VALUE="] == nil {
-					fields["=VALUE="] = make(map[string]any)
+				as := aliased.As.String()
+				if as == "" {
+					return nil, fmt.Errorf("select value must be with as")
 				}
-				fields["=VALUE="][aliased.As.String()] = val
+				field := &Field{
+					As:    aliased.As.String(),
+					Value: val,
+				}
+				newFields = append(newFields, field)
 				continue
 			}
 			colName := aliased.Expr.(*sqlparser.ColName)
-			field := colName.Name.String()
 			qua := colName.Qualifier.Name.String()
-			as := aliased.As.String()
-			if as == "" {
-				as = field
+			if qua == "" && len(query.Keys) != 1 {
+				return nil, fmt.Errorf("qualifier is must be defined")
 			}
-			if fields[qua] == nil {
-				fields[qua] = make(map[string]any)
+			var table *models.QueryTable
+			if len(query.Keys) == 1 {
+				table = query.Get(query.Keys[0])
+			} else {
+				table = query.Get(qua)
 			}
-			fields[qua][as] = field
+			if table == nil {
+				return nil, fmt.Errorf("table for qualifier %s is not found", qua)
+			}
+			tableField := colName.Name.String()
+			field := &Field{
+				Qualifier: qua,
+				Table:     table.Name,
+				As:        aliased.As.String(),
+				Field:     tableField,
+			}
+			newFields = append(newFields, field)
 			continue
 		}
 		fmt.Println("???", reflect.TypeOf(expr))
 	}
 
-	return fields
+	return newFields, nil
 }
 
 func getIdxQualifierInQuery(query *models.OrderMap[string, *models.QueryTable], qua string) int {
@@ -229,21 +273,48 @@ func (me *Handler) selectAction(stmt *sqlparser.Select) (any, error) {
 		return nil, fmt.Errorf("from clause cannot empty")
 	}
 
-	// qualifier -> as -> field
-	fields := parseSelectField(stmt)
-	for qua := range fields {
-		if qua == "" {
-			if len(fields) <= 1 {
-				continue
-			}
-			if len(query.Keys) > 1 {
-				return nil, fmt.Errorf("qualifier is must be defined")
-			}
-			continue
+	fields, err := parseSelectField(stmt, query)
+	if err != nil {
+		return nil, err
+	}
+
+	tables := map[string]bool{}
+	for _, field := range fields {
+		tables[field.Table] = true
+	}
+
+	for table := range tables {
+		db := getDb(table)
+		if db == nil {
+			return nil, fmt.Errorf("table %s is not found", table)
 		}
-		_, exist := query.GetExist(qua)
-		if !exist {
-			return nil, fmt.Errorf("qualifier %s is not found", qua)
+		rules := readAuthRules[db.Name]
+		err := me.validateRules(rules, db.Name, "", nil, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		rules = readAuthRules[db.Name+"."+table]
+		newRules := []map[string]any{}
+		for _, rule := range rules {
+			isPending := false
+			for key, val := range rule {
+				if strings.HasPrefix(key, "$") {
+					isPending = true
+					break
+				}
+				if val, ok := val.(string); ok && strings.HasPrefix(val, "$") {
+					isPending = true
+					break
+				}
+			}
+			if !isPending {
+				newRules = append(newRules, rule)
+			}
+		}
+		err = me.validateRules(newRules, db.Name, table, nil, nil)
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -300,6 +371,51 @@ func (me *Handler) selectAction(stmt *sqlparser.Select) (any, error) {
 		raw[qua] = res
 	}
 
+	for table := range tables {
+		db := getDb(table)
+		if db == nil {
+			return nil, fmt.Errorf("table %s is not found", table)
+		}
+		rules := readAuthRules[db.Name]
+		err := me.validateRules(rules, db.Name, "", nil, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		rules = readAuthRules[db.Name+"."+table]
+		newRules := []map[string]any{}
+		for _, rule := range rules {
+			isPending := false
+			for key, val := range rule {
+				if strings.HasPrefix(key, "$") {
+					isPending = true
+					break
+				}
+				if val, ok := val.(string); ok && strings.HasPrefix(val, "$") {
+					isPending = true
+					break
+				}
+			}
+			if isPending {
+				newRules = append(newRules, rule)
+			}
+		}
+		qua := ""
+		for _, quer := range query.Keys {
+			queryTable := query.Get(quer)
+			if queryTable.Name == table {
+				qua = quer
+			}
+		}
+		data := raw[qua]
+		err = me.validateRules(newRules, db.Name, table, nil, data)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// fmt.Printf("Data: %+v\n", raw)
+
 	for i := 1; i < len(query.Keys); i++ {
 		qua := query.Keys[i]
 		table := query.Get(qua)
@@ -310,20 +426,6 @@ func (me *Handler) selectAction(stmt *sqlparser.Select) (any, error) {
 			if joinMap[key] == nil {
 				joinMap[key] = make([]any, 0)
 			}
-			// for field := range val {
-			// 	quaFields := fields[qua]
-			// 	found := false
-			// 	for _, reqField := range quaFields {
-			// 		if reqField, ok := reqField.(string); ok && reqField == field {
-			// 			found = true
-			// 			break
-			// 		}
-			// 	}
-			// 	if !found {
-			// 		fmt.Println("Data:", field)
-			// 		delete(val, field)
-			// 	}
-			// }
 			joinMap[key] = append(joinMap[key], val)
 		}
 		newVal := []map[string]any{}
@@ -339,6 +441,11 @@ func (me *Handler) selectAction(stmt *sqlparser.Select) (any, error) {
 			newVal = append(newVal, val)
 		}
 		raw[targetQua] = newVal
+	}
+
+	isTable := schema.Output == "table"
+	if isTable {
+		// fmt.Printf("Data: %+v\n", fields)
 	}
 
 	// TODO: RULES FOR SELECT

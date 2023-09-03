@@ -1,7 +1,6 @@
 package main
 
 import (
-	"cdf/api"
 	"cdf/core"
 	"cdf/models"
 	"cdf/utils"
@@ -37,8 +36,6 @@ var SELECT_QUERY = `
 		store s
 		LEFT JOIN users u ON s.user_id = u.id
 		LEFT JOIN orders o ON o.user_id = u.id
-	WHERE
-		u.id > 1
 `
 
 var SELECT_QUERY2 = `
@@ -72,19 +69,9 @@ func main() {
 	}
 
 	core.Start(&schema)
-	api.Start()
+	// api.Start()
 
-	stmt, err := sqlparser.Parse(`
-	UPDATE orders 
-	SET 
-		updated_at = NOW(),
-		payment = CONVERT(
-			'{"currency": "IDR", "amount": 20000, "type": "BANK-VA", "status": "PAID"}',
-			JSON
-		)
-	WHERE 
-		_id = '64e553fdd104247cdf7ce800'
-	`)
+	stmt, err := sqlparser.Parse(`SELECT s.* FROM store s JOIN users u ON s.user_id = u.id WHERE s.user_id = 1`)
 	if err != nil {
 		fmt.Println("err", err)
 		return
