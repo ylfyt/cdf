@@ -71,7 +71,16 @@ func main() {
 	core.Start(&schema)
 	// api.Start()
 
-	stmt, err := sqlparser.Parse(`SELECT s.* FROM store s JOIN users u ON s.user_id = u.id WHERE s.user_id = 1`)
+	// INSERT INTO user_detail(user_id, address, phone_number, created_at) VALUES (3, 'Jalan Baru', '0822123123', NOW())
+
+	stmt, err := sqlparser.Parse(`
+		UPDATE store_detail
+		SET	
+			store_id = 2,
+			address = 'Updated'
+		WHERE
+			store_id = 1
+	`)
 	if err != nil {
 		fmt.Println("err", err)
 		return
@@ -86,7 +95,7 @@ func main() {
 	if err != nil {
 		fmt.Println("err", err)
 		return
-	}	
+	}
 	fmt.Printf("Data: %+v\n", res)
-	
+
 }

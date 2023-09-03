@@ -96,6 +96,8 @@ func (me *Handler) insertAction(stmt *sqlparser.Insert) error {
 		inputValues = append(inputValues, newValue)
 	}
 
+	tableFields := schema.Databases[db.Name].Tables[tableName].Fields
+
 	// === AUTH
 	dbRules := createAuthRules[db.Name]
 	if len(dbRules) != 0 {
@@ -111,7 +113,7 @@ func (me *Handler) insertAction(stmt *sqlparser.Insert) error {
 			return err
 		}
 	}
-	for fieldName := range schema.Databases[db.Name].Tables[tableName].Fields {
+	for fieldName := range tableFields {
 		fieldRules := createAuthRules[db.Name+"."+tableName+"."+fieldName]
 		if len(fieldRules) != 0 {
 			err := me.validateRules(fieldRules, db.Name, tableName, inputValues, nil)
@@ -121,6 +123,16 @@ func (me *Handler) insertAction(stmt *sqlparser.Insert) error {
 		}
 	}
 	// === END AUTH
+
+	fields := getTableFields(db.Name, tableName)
+	if fields == nil {
+		return fmt.Errorf("why this fields is nil")
+	}
+
+	err := foreignCheck(fields, columns, values, true)
+	if err != nil {
+		return err
+	}
 
 	driver := drivers[db.Type]
 	return driver.insert(db.Conn, tableName, columns, values)

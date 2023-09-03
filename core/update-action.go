@@ -96,5 +96,25 @@ func (me *Handler) updateAction(stmt *sqlparser.Update) (any, error) {
 		}
 	}
 	// === END AUTH
+
+	var columns []string = make([]string, len(values))
+	var rowValues []any = make([]any, len(values))
+	idx := 0
+	for col, val := range values {
+		columns[idx] = col
+		rowValues[idx] = val
+		idx++
+	}
+
+	fields := getTableFields(db.Name, tableName)
+	if fields == nil {
+		return 0, fmt.Errorf("why this fields is nil")
+	}
+
+	err := foreignCheck(fields, columns, [][]any{rowValues}, false)
+	if err != nil {
+		return 0, err
+	}
+
 	return driver.update(db.Conn, tableName, wheres, values)
 }
