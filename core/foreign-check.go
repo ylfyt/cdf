@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-func foreignCheck(fields map[string]*FieldInfo, columns []string, values [][]any, isFull bool) error {
+func foreignCheck(fields map[string]*models.FieldInfo, columns []string, values [][]any, isFull bool) error {
 	for fieldName, field := range fields {
 		if field.Ref.Table == "" {
 			continue
@@ -68,7 +68,6 @@ func foreignCheck(fields map[string]*FieldInfo, columns []string, values [][]any
 			query := models.QueryTable{
 				Name: table,
 			}
-			driver := drivers[db.Type]
 			wheres := []*models.Cond{}
 			for _, field := range fields {
 				wheres = append(wheres, &models.Cond{
@@ -81,7 +80,7 @@ func foreignCheck(fields map[string]*FieldInfo, columns []string, values [][]any
 					},
 				})
 			}
-			res, err := driver.read(db.Conn, &query, wheres)
+			res, err := db.read(db.Conn, &query, wheres)
 			if err != nil {
 				return err
 			}

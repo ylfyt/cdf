@@ -1,7 +1,6 @@
 package main
 
 import (
-	"cdf/api"
 	"cdf/core"
 	"cdf/models"
 	"cdf/utils"
@@ -70,19 +69,11 @@ func main() {
 	}
 
 	core.Start(&schema)
-	api.Start()
-	return
+	// api.Start()
+	// return
 
 	stmt, err := sqlparser.Parse(`
-		SELECT
-			p.*,
-			c.*
-		FROM
-			product p
-			JOIN product_category pc ON p.id = pc.product_id
-			JOIN category c ON c.id = pc.category_id
-		WHERE
-			p.id = 1
+		UPDATE product SET detail = 'dasodsa' WHERE id = 1
 	`)
 	if err != nil {
 		fmt.Println("err", err)

@@ -79,8 +79,7 @@ func (me *Handler) selectAction(stmt *sqlparser.Select) (any, error) {
 		if db == nil {
 			return nil, fmt.Errorf("db not found for %s", table.Name)
 		}
-		driver := drivers[db.Type]
-		res, err := driver.read(db.Conn, table, wheres)
+		res, err := db.read(db.Conn, table, wheres)
 		if err != nil {
 			return nil, err
 		}
@@ -105,7 +104,7 @@ func (me *Handler) validateAuth(tables map[string]bool, query *models.OrderMap[s
 			return fmt.Errorf("table %s is not found", table)
 		}
 		rules := readAuthRules[db.Name]
-		err := me.validateRules(rules, db.Name, "", nil, nil)
+		err := me.validateRules(rules, db.Name, "", nil, nil, false)
 		if err != nil {
 			return err
 		}
@@ -133,7 +132,7 @@ func (me *Handler) validateAuth(tables map[string]bool, query *models.OrderMap[s
 		}
 
 		if !validateData {
-			err = me.validateRules(newRules, db.Name, table, nil, nil)
+			err = me.validateRules(newRules, db.Name, table, nil, nil, false)
 			if err != nil {
 				return err
 			}
@@ -148,7 +147,7 @@ func (me *Handler) validateAuth(tables map[string]bool, query *models.OrderMap[s
 			}
 		}
 		data := raw[qua]
-		err = me.validateRules(newRules, db.Name, table, nil, data)
+		err = me.validateRules(newRules, db.Name, table, nil, data, false)
 		if err != nil {
 			return err
 		}

@@ -1,20 +1,12 @@
 package core
 
 import (
+	"cdf/models"
 	"fmt"
 	"strings"
 )
 
-type FieldInfo struct {
-	Name string
-	Type string
-	Ref  struct {
-		Table string
-		Field string
-	}
-}
-
-func getTableFields(dbName string, tableName string) map[string]*FieldInfo {
+func getTableFields(dbName string, tableName string) map[string]*models.FieldInfo {
 	db, exist := schema.Databases[dbName]
 	if !exist {
 		return nil
@@ -25,11 +17,11 @@ func getTableFields(dbName string, tableName string) map[string]*FieldInfo {
 		return nil
 	}
 
-	var result map[string]*FieldInfo = make(map[string]*FieldInfo)
+	var result map[string]*models.FieldInfo = make(map[string]*models.FieldInfo)
 	for fieldName := range table.Fields {
 		field := table.Fields[fieldName]
 		if field, ok := field.(string); ok {
-			result[fieldName] = &FieldInfo{
+			result[fieldName] = &models.FieldInfo{
 				Name: fieldName,
 				Type: field,
 			}
@@ -42,7 +34,7 @@ func getTableFields(dbName string, tableName string) map[string]*FieldInfo {
 				fmt.Println("Why nil", field)
 				return nil
 			}
-			fieldInfo := FieldInfo{
+			fieldInfo := models.FieldInfo{
 				Name: fieldName,
 				Type: fmt.Sprint(fieldType),
 			}

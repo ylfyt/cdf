@@ -75,7 +75,8 @@
               "ref": "store.id"
             },
             "created_at": "timestamp",
-            "updated_at": "timestamp"
+            "updated_at": "timestamp",
+            "detail": "object"
           }
         },
         "product_inventory": {

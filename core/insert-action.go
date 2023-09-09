@@ -101,14 +101,14 @@ func (me *Handler) insertAction(stmt *sqlparser.Insert) error {
 	// === AUTH
 	dbRules := createAuthRules[db.Name]
 	if len(dbRules) != 0 {
-		err := me.validateRules(dbRules, db.Name, "", nil, nil)
+		err := me.validateRules(dbRules, db.Name, "", nil, nil, true)
 		if err != nil {
 			return err
 		}
 	}
 	tableRules := createAuthRules[db.Name+"."+tableName]
 	if len(tableRules) != 0 {
-		err := me.validateRules(tableRules, db.Name, tableName, inputValues, nil)
+		err := me.validateRules(tableRules, db.Name, tableName, inputValues, nil, true)
 		if err != nil {
 			return err
 		}
@@ -116,7 +116,7 @@ func (me *Handler) insertAction(stmt *sqlparser.Insert) error {
 	for fieldName := range tableFields {
 		fieldRules := createAuthRules[db.Name+"."+tableName+"."+fieldName]
 		if len(fieldRules) != 0 {
-			err := me.validateRules(fieldRules, db.Name, tableName, inputValues, nil)
+			err := me.validateRules(fieldRules, db.Name, tableName, inputValues, nil, true)
 			if err != nil {
 				return err
 			}
@@ -134,6 +134,5 @@ func (me *Handler) insertAction(stmt *sqlparser.Insert) error {
 		return err
 	}
 
-	driver := drivers[db.Type]
-	return driver.insert(db.Conn, tableName, columns, values)
+	return db.insert(db.Conn, tableName, columns, values)
 }

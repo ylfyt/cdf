@@ -47,12 +47,11 @@ func (me *Handler) updateAction(stmt *sqlparser.Update) (any, error) {
 	if db == nil {
 		return nil, fmt.Errorf("table %s not found", tableName)
 	}
-	driver := drivers[db.Type]
 
 	// === AUTH
 	dbRules := updateAuthRules[db.Name]
 	if len(dbRules) != 0 {
-		err := me.validateRules(dbRules, db.Name, "", nil, nil)
+		err := me.validateRules(dbRules, db.Name, "", nil, nil, false)
 		if err != nil {
 			return 0, err
 		}
@@ -72,7 +71,7 @@ func (me *Handler) updateAction(stmt *sqlparser.Update) (any, error) {
 		}
 		var data []map[string]any
 		if isDataRequired {
-			dataTmp, err := driver.read(db.Conn, &models.QueryTable{
+			dataTmp, err := db.read(db.Conn, &models.QueryTable{
 				Name:         tableName,
 				SelectFields: map[string]any{},
 			}, wheres)
@@ -81,7 +80,7 @@ func (me *Handler) updateAction(stmt *sqlparser.Update) (any, error) {
 			}
 			data = dataTmp
 		}
-		err := me.validateRules(tableRules, db.Name, tableName, inputValues, data)
+		err := me.validateRules(tableRules, db.Name, tableName, inputValues, data, false)
 		if err != nil {
 			return 0, err
 		}
@@ -89,7 +88,7 @@ func (me *Handler) updateAction(stmt *sqlparser.Update) (any, error) {
 	for fieldName := range schema.Databases[db.Name].Tables[tableName].Fields {
 		fieldRules := updateAuthRules[db.Name+"."+tableName+"."+fieldName]
 		if len(fieldRules) != 0 {
-			err := me.validateRules(fieldRules, db.Name, tableName, inputValues, nil)
+			err := me.validateRules(fieldRules, db.Name, tableName, inputValues, nil, false)
 			if err != nil {
 				return 0, err
 			}
@@ -116,5 +115,5 @@ func (me *Handler) updateAction(stmt *sqlparser.Update) (any, error) {
 		return 0, err
 	}
 
-	return driver.update(db.Conn, tableName, wheres, values)
+	return db.update(db.Conn, tableName, wheres, values)
 }

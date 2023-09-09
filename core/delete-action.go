@@ -39,12 +39,11 @@ func (me *Handler) deleteAction(stmt *sqlparser.Delete) (int, error) {
 	if db == nil {
 		return 0, fmt.Errorf("table %s not found", tableName)
 	}
-	driver := drivers[db.Type]
 
 	// === AUTH
 	dbRules := deleteAuthRules[db.Name]
 	if len(dbRules) != 0 {
-		err := me.validateRules(dbRules, db.Name, "", nil, nil)
+		err := me.validateRules(dbRules, db.Name, "", nil, nil, false)
 		if err != nil {
 			return 0, err
 		}
@@ -61,7 +60,7 @@ func (me *Handler) deleteAction(stmt *sqlparser.Delete) (int, error) {
 		}
 		var data []map[string]any
 		if isDataRequired {
-			dataTmp, err := driver.read(db.Conn, &models.QueryTable{
+			dataTmp, err := db.read(db.Conn, &models.QueryTable{
 				Name:         tableName,
 				SelectFields: map[string]any{},
 			}, wheres)
@@ -70,7 +69,7 @@ func (me *Handler) deleteAction(stmt *sqlparser.Delete) (int, error) {
 			}
 			data = dataTmp
 		}
-		err := me.validateRules(tableRules, db.Name, tableName, nil, data)
+		err := me.validateRules(tableRules, db.Name, tableName, nil, data, false)
 		if err != nil {
 			return 0, err
 		}
@@ -78,7 +77,7 @@ func (me *Handler) deleteAction(stmt *sqlparser.Delete) (int, error) {
 	for fieldName := range schema.Databases[db.Name].Tables[tableName].Fields {
 		fieldRules := deleteAuthRules[db.Name+"."+tableName+"."+fieldName]
 		if len(fieldRules) != 0 {
-			err := me.validateRules(fieldRules, db.Name, tableName, nil, nil)
+			err := me.validateRules(fieldRules, db.Name, tableName, nil, nil, false)
 			if err != nil {
 				return 0, err
 			}
@@ -86,5 +85,5 @@ func (me *Handler) deleteAction(stmt *sqlparser.Delete) (int, error) {
 	}
 	// === END AUTH
 
-	return driver.delete(db.Conn, tableName, wheres)
+	return db.delete(db.Conn, tableName, wheres)
 }

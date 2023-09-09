@@ -173,7 +173,7 @@ func isValid(val1 any, val2 any, fieldType string, op string) error {
 	return nil
 }
 
-func (me *Handler) validateRules(rules []map[string]any, dbName string, tableName string, inputValues []map[string]any, existValues []map[string]any) error {
+func (me *Handler) validateRules(rules []map[string]any, dbName string, tableName string, inputValues []map[string]any, existValues []map[string]any, isRequiredData bool) error {
 	for _, rule := range rules {
 		for key, authRule := range rule {
 			if rule, ok := authRule.(string); ok && strings.HasPrefix(rule, "data.") {
@@ -194,9 +194,12 @@ func (me *Handler) validateRules(rules []map[string]any, dbName string, tableNam
 				for _, values := range inputValues {
 					dataValue, exist := values[field]
 					_ = exist
-					// if !exist {
-					// 	return fmt.Errorf("input field %s not found", field)
-					// }
+					if !exist {
+						if isRequiredData {
+							return fmt.Errorf("input field '%s' not found", field)
+						}
+						continue
+					}
 
 					if val, ok := authRule.(map[string]any); ok {
 						for op, val := range val {

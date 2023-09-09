@@ -32,6 +32,37 @@ type database struct {
 	Conn any
 }
 
+func (me *database) insert(conn any, table string, columns []string, values [][]any) error {
+	driver := drivers[me.Type]
+	if driver == nil {
+		return fmt.Errorf("driver '%s' is not found", me.Type)
+	}
+	return driver.insert(conn, table, columns, values)
+}
+
+func (me *database) delete(conn any, table string, wheres []*models.Cond) (int, error) {
+	driver := drivers[me.Type]
+	if driver == nil {
+		return 0, fmt.Errorf("driver '%s' is not found", me.Type)
+	}
+	return driver.delete(conn, table, wheres)
+}
+func (me *database) update(conn any, table string, wheres []*models.Cond, values map[string]any) (int, error) {
+	driver := drivers[me.Type]
+	if driver == nil {
+		return 0, fmt.Errorf("driver '%s' is not found", me.Type)
+	}
+	return driver.update(conn, table, wheres, values)
+}
+
+func (me *database) read(conn any, table *models.QueryTable, wheres []*models.Cond) ([]map[string]any, error) {
+	driver := drivers[me.Type]
+	if driver == nil {
+		return nil, fmt.Errorf("driver '%s' is not found", me.Type)
+	}
+	return driver.read(conn, table, wheres)
+}
+
 var drivers map[string]*driver
 var databaseTable map[string]int
 var databases []*database
