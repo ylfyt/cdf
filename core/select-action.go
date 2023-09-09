@@ -11,6 +11,183 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+func (me *Handler) selectAction(stmt *sqlparser.Select) (any, error) {
+	query, err := parseFrom(stmt)
+	if err != nil {
+		return nil, err
+	}
+	if len(query.Keys) == 0 {
+		return nil, fmt.Errorf("from clause cannot empty")
+	}
+
+	fields, err := parseSelectField(stmt, query)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Printf("Before: %+v\n", fields)
+	newFields := []*Field{}
+	for _, field := range fields {
+		if field.Value != nil || field.Field != "*" {
+			newFields = append(newFields, field)
+			continue
+		}
+		db := getDb(field.Table)
+		fieldInfo := getTableFields(db.Name, field.Table)
+		for fieldKey := range fieldInfo {
+			newFields = append(newFields, &Field{
+				Qualifier: field.Qualifier,
+				Table:     field.Table,
+				As:        "",
+				Field:     fieldKey,
+				Value:     nil,
+			})
+		}
+	}
+	fields = newFields
+
+	tables := map[string]bool{}
+	for _, field := range fields {
+		tables[field.Table] = true
+	}
+
+	for table := range tables {
+		db := getDb(table)
+		if db == nil {
+			return nil, fmt.Errorf("table %s is not found", table)
+		}
+		rules := readAuthRules[db.Name]
+		err := me.validateRules(rules, db.Name, "", nil, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		rules = readAuthRules[db.Name+"."+table]
+		newRules := []map[string]any{}
+		for _, rule := range rules {
+			isPending := false
+			for key, val := range rule {
+				if strings.HasPrefix(key, "$") {
+					isPending = true
+					break
+				}
+				if val, ok := val.(string); ok && strings.HasPrefix(val, "$") {
+					isPending = true
+					break
+				}
+			}
+			if !isPending {
+				newRules = append(newRules, rule)
+			}
+		}
+		err = me.validateRules(newRules, db.Name, table, nil, nil)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var wheres []*models.Cond
+	if stmt.Where != nil {
+		wheres = utils.ParseJoinCondition(stmt.Where.Expr)
+	}
+	for _, where := range wheres {
+		if len(query.Keys) > 1 {
+			if where.Left.Field != "" && where.Left.Qualifier == "" {
+				return nil, fmt.Errorf("qualifier cannot empty when tables > 1")
+			}
+			if where.Right.Field != "" && where.Right.Qualifier == "" {
+				return nil, fmt.Errorf("qualifier cannot empty when tables > 1")
+			}
+		} else {
+			if where.Left.Qualifier == "" {
+				where.Left.Qualifier = query.Keys[0]
+			}
+			if where.Right.Qualifier == "" {
+				where.Right.Qualifier = query.Keys[0]
+			}
+		}
+	}
+
+	err = parseDependencyConds(query)
+	if err != nil {
+		return nil, err
+	}
+	err = applyWheres(query, wheres)
+	if err != nil {
+		return nil, err
+	}
+
+	raw := map[string][]map[string]any{}
+
+	for _, qua := range query.Keys {
+		table := query.Get(qua)
+		// Parse db wheres
+		wheres := []*models.Cond{}
+		wheres = append(wheres, table.Conds...)
+
+		applyDepWheres(table.DepConds, qua, &wheres, raw)
+
+		db := getDb(table.Name)
+		if db == nil {
+			return nil, fmt.Errorf("db not found for %s", table.Name)
+		}
+		driver := drivers[db.Type]
+		res, err := driver.read(db.Conn, table, wheres)
+		if err != nil {
+			return nil, err
+		}
+		raw[qua] = res
+	}
+
+	// PENDING RULES
+	for table := range tables {
+		db := getDb(table)
+		if db == nil {
+			return nil, fmt.Errorf("table %s is not found", table)
+		}
+		rules := readAuthRules[db.Name]
+		err := me.validateRules(rules, db.Name, "", nil, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		rules = readAuthRules[db.Name+"."+table]
+		newRules := []map[string]any{}
+		for _, rule := range rules {
+			isPending := false
+			for key, val := range rule {
+				if strings.HasPrefix(key, "$") {
+					isPending = true
+					break
+				}
+				if val, ok := val.(string); ok && strings.HasPrefix(val, "$") {
+					isPending = true
+					break
+				}
+			}
+			if isPending {
+				newRules = append(newRules, rule)
+			}
+		}
+		qua := ""
+		for _, quer := range query.Keys {
+			queryTable := query.Get(quer)
+			if queryTable.Name == table {
+				qua = quer
+			}
+		}
+		data := raw[qua]
+		err = me.validateRules(newRules, db.Name, table, nil, data)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	res := processJoin(query, raw)
+	final := generateFinalValue(res, fields, query)
+	return final, nil
+}
+
 func parseTableExprs(expr sqlparser.TableExpr, tables *models.OrderMap[string, *models.QueryTable], conds []*models.Cond, join string) {
 	if expr, ok := expr.(*sqlparser.AliasedTableExpr); ok {
 		as := expr.As.String()
@@ -393,181 +570,4 @@ func processJoin(query *models.OrderMap[string, *models.QueryTable], raw map[str
 	}
 
 	return res
-}
-
-func (me *Handler) selectAction(stmt *sqlparser.Select) (any, error) {
-	query, err := parseFrom(stmt)
-	if err != nil {
-		return nil, err
-	}
-	if len(query.Keys) == 0 {
-		return nil, fmt.Errorf("from clause cannot empty")
-	}
-
-	fields, err := parseSelectField(stmt, query)
-	if err != nil {
-		return nil, err
-	}
-
-	fmt.Printf("Before: %+v\n", fields)
-	newFields := []*Field{}
-	for _, field := range fields {
-		if field.Value != nil || field.Field != "*" {
-			newFields = append(newFields, field)
-			continue
-		}
-		db := getDb(field.Table)
-		fieldInfo := getTableFields(db.Name, field.Table)
-		for fieldKey := range fieldInfo {
-			newFields = append(newFields, &Field{
-				Qualifier: field.Qualifier,
-				Table:     field.Table,
-				As:        "",
-				Field:     fieldKey,
-				Value:     nil,
-			})
-		}
-	}
-	fields = newFields
-
-	tables := map[string]bool{}
-	for _, field := range fields {
-		tables[field.Table] = true
-	}
-
-	for table := range tables {
-		db := getDb(table)
-		if db == nil {
-			return nil, fmt.Errorf("table %s is not found", table)
-		}
-		rules := readAuthRules[db.Name]
-		err := me.validateRules(rules, db.Name, "", nil, nil)
-		if err != nil {
-			return nil, err
-		}
-
-		rules = readAuthRules[db.Name+"."+table]
-		newRules := []map[string]any{}
-		for _, rule := range rules {
-			isPending := false
-			for key, val := range rule {
-				if strings.HasPrefix(key, "$") {
-					isPending = true
-					break
-				}
-				if val, ok := val.(string); ok && strings.HasPrefix(val, "$") {
-					isPending = true
-					break
-				}
-			}
-			if !isPending {
-				newRules = append(newRules, rule)
-			}
-		}
-		err = me.validateRules(newRules, db.Name, table, nil, nil)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	var wheres []*models.Cond
-	if stmt.Where != nil {
-		wheres = utils.ParseJoinCondition(stmt.Where.Expr)
-	}
-	for _, where := range wheres {
-		if len(query.Keys) > 1 {
-			if where.Left.Field != "" && where.Left.Qualifier == "" {
-				return nil, fmt.Errorf("qualifier cannot empty when tables > 1")
-			}
-			if where.Right.Field != "" && where.Right.Qualifier == "" {
-				return nil, fmt.Errorf("qualifier cannot empty when tables > 1")
-			}
-		} else {
-			if where.Left.Qualifier == "" {
-				where.Left.Qualifier = query.Keys[0]
-			}
-			if where.Right.Qualifier == "" {
-				where.Right.Qualifier = query.Keys[0]
-			}
-		}
-	}
-
-	err = parseDependencyConds(query)
-	if err != nil {
-		return nil, err
-	}
-	err = applyWheres(query, wheres)
-	if err != nil {
-		return nil, err
-	}
-
-	raw := map[string][]map[string]any{}
-
-	for _, qua := range query.Keys {
-		table := query.Get(qua)
-		// Parse db wheres
-		wheres := []*models.Cond{}
-		wheres = append(wheres, table.Conds...)
-
-		applyDepWheres(table.DepConds, qua, &wheres, raw)
-
-		db := getDb(table.Name)
-		if db == nil {
-			return nil, fmt.Errorf("db not found for %s", table.Name)
-		}
-		driver := drivers[db.Type]
-		res, err := driver.read(db.Conn, table, wheres)
-		if err != nil {
-			return nil, err
-		}
-		raw[qua] = res
-	}
-
-	// PENDING RULES
-	for table := range tables {
-		db := getDb(table)
-		if db == nil {
-			return nil, fmt.Errorf("table %s is not found", table)
-		}
-		rules := readAuthRules[db.Name]
-		err := me.validateRules(rules, db.Name, "", nil, nil)
-		if err != nil {
-			return nil, err
-		}
-
-		rules = readAuthRules[db.Name+"."+table]
-		newRules := []map[string]any{}
-		for _, rule := range rules {
-			isPending := false
-			for key, val := range rule {
-				if strings.HasPrefix(key, "$") {
-					isPending = true
-					break
-				}
-				if val, ok := val.(string); ok && strings.HasPrefix(val, "$") {
-					isPending = true
-					break
-				}
-			}
-			if isPending {
-				newRules = append(newRules, rule)
-			}
-		}
-		qua := ""
-		for _, quer := range query.Keys {
-			queryTable := query.Get(quer)
-			if queryTable.Name == table {
-				qua = quer
-			}
-		}
-		data := raw[qua]
-		err = me.validateRules(newRules, db.Name, table, nil, data)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	res := processJoin(query, raw)
-	final := generateFinalValue(res, fields, query)
-	return final, nil
 }
