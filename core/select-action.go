@@ -414,41 +414,77 @@ func (me *Handler) selectAction(stmt *sqlparser.Select) (any, error) {
 		}
 	}
 
-	// fmt.Printf("Data: %+v\n", raw)
+	res := []map[string]any{}
+	res = append(res, raw[query.Keys[0]]...)
 
 	for i := 1; i < len(query.Keys); i++ {
 		qua := query.Keys[i]
 		table := query.Get(qua)
-		result := raw[qua]
 		joinMap := map[string][]any{}
-		for _, val := range result {
+		for _, val := range raw[qua] {
 			key := buildKey(table, qua, val)
 			if joinMap[key] == nil {
 				joinMap[key] = make([]any, 0)
 			}
 			joinMap[key] = append(joinMap[key], val)
 		}
-		newVal := []map[string]any{}
-		targetQua := query.Keys[i-1]
-		target := raw[targetQua]
-		for _, val := range target {
-			key := buildKey(table, targetQua, val)
-			joinValues := joinMap[key]
-			val[table.Name] = joinValues
-			if table.Join == "join" && len(joinValues) == 0 {
-				continue
+
+		for _, re := range res {
+			keys := []string{""}
+			for _, cond := range table.DepConds {
+				if cond.Left.Qualifier != qua {
+					qua := cond.Left.Qualifier
+					field := cond.Left.Field
+					if qua == query.Keys[0] {
+						for idx := range keys {
+							keys[idx] += fmt.Sprint(re[field]) + "_"
+						}
+					} else {
+						if val, ok := re[qua].([]any); ok {
+							newKeys := []string{}
+							for idx := range keys {
+								for _, a := range val {
+									if a, ok := a.(map[string]any); ok {
+										newKeys = append(newKeys, keys[idx]+fmt.Sprint(a[field])+"_")
+									}
+								}
+							}
+							keys = newKeys
+						} else {
+							fmt.Println("???", qua, reflect.TypeOf(re[qua]))
+						}
+					}
+				} else if cond.Right.Qualifier != qua {
+					qua := cond.Right.Qualifier
+					field := cond.Right.Field
+					if qua == query.Keys[0] {
+						for idx := range keys {
+							keys[idx] += fmt.Sprint(re[field]) + "_"
+						}
+					} else {
+						if val, ok := re[qua].([]any); ok {
+							newKeys := []string{}
+							for idx := range keys {
+								for _, a := range val {
+									if a, ok := a.(map[string]any); ok {
+										newKeys = append(newKeys, keys[idx]+fmt.Sprint(a[field])+"_")
+									}
+								}
+							}
+							keys = newKeys
+						} else {
+							fmt.Println("???", qua, reflect.TypeOf(re[qua]))
+						}
+					}
+				}
 			}
-			newVal = append(newVal, val)
+			joinValues := []any{}
+			for _, key := range keys {
+				joinValues = append(joinValues, joinMap[key]...)
+			}
+			re[qua] = joinValues
 		}
-		raw[targetQua] = newVal
 	}
 
-	isTable := schema.Output == "table"
-	if isTable {
-		// fmt.Printf("Data: %+v\n", fields)
-	}
-
-	// TODO: RULES FOR SELECT
-
-	return raw[query.Keys[0]], nil
+	return res, nil
 }

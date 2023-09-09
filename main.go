@@ -73,13 +73,25 @@ func main() {
 
 	// INSERT INTO user_detail(user_id, address, phone_number, created_at) VALUES (3, 'Jalan Baru', '0822123123', NOW())
 
+	// SELECT 
+	// 	u.*,
+	// 	s.*
+	// FROM
+	// 	users u
+	// 	JOIN store s ON u.id = s.user_id
+	// 	JOIN user_detail ud ON ud.user_id = u.id
+	// WHERE
+	// 	u.id = 2
+
 	stmt, err := sqlparser.Parse(`
-		UPDATE store_detail
-		SET	
-			store_id = 2,
-			address = 'Updated'
+		SELECT
+			p.*
+		FROM
+			product p
+			JOIN product_category pc ON p.id = pc.product_id
+			JOIN category c ON c.id = pc.category_id
 		WHERE
-			store_id = 1
+			p.id = 1
 	`)
 	if err != nil {
 		fmt.Println("err", err)
