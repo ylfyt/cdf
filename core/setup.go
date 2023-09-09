@@ -17,14 +17,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type driver struct {
-	Type   string
-	insert func(conn any, table string, columns []string, values [][]any) error
-	delete func(conn any, table string, wheres []*models.Cond) (int, error)
-	update func(conn any, table string, wheres []*models.Cond, values map[string]any) (int, error)
-	read   func(conn any, table *models.QueryTable, wheres []*models.Cond) ([]map[string]any, error)
-}
-
 type database struct {
 	Info string
 	Type string
@@ -33,37 +25,37 @@ type database struct {
 }
 
 func (me *database) insert(conn any, table string, columns []string, values [][]any) error {
-	driver := drivers[me.Type]
-	if driver == nil {
-		return fmt.Errorf("driver '%s' is not found", me.Type)
+	fields := getTableFields(me.Name, table)
+	ctx := handlers.HandlerCtx{
+		Fields: fields,
 	}
-	return driver.insert(conn, table, columns, values)
+
+	return insert(conn, &ctx, me.Type, table, columns, values)
 }
 
 func (me *database) delete(conn any, table string, wheres []*models.Cond) (int, error) {
-	driver := drivers[me.Type]
-	if driver == nil {
-		return 0, fmt.Errorf("driver '%s' is not found", me.Type)
+	fields := getTableFields(me.Name, table)
+	ctx := handlers.HandlerCtx{
+		Fields: fields,
 	}
-	return driver.delete(conn, table, wheres)
+	return delete(conn, &ctx, me.Type, table, wheres)
 }
 func (me *database) update(conn any, table string, wheres []*models.Cond, values map[string]any) (int, error) {
-	driver := drivers[me.Type]
-	if driver == nil {
-		return 0, fmt.Errorf("driver '%s' is not found", me.Type)
+	fields := getTableFields(me.Name, table)
+	ctx := handlers.HandlerCtx{
+		Fields: fields,
 	}
-	return driver.update(conn, table, wheres, values)
+	return update(conn, &ctx, me.Type, table, wheres, values)
 }
 
 func (me *database) read(conn any, table *models.QueryTable, wheres []*models.Cond) ([]map[string]any, error) {
-	driver := drivers[me.Type]
-	if driver == nil {
-		return nil, fmt.Errorf("driver '%s' is not found", me.Type)
+	fields := getTableFields(me.Name, table.Name)
+	ctx := handlers.HandlerCtx{
+		Fields: fields,
 	}
-	return driver.read(conn, table, wheres)
+	return read(conn, &ctx, me.Type, table, wheres)
 }
 
-var drivers map[string]*driver
 var databaseTable map[string]int
 var databases []*database
 var schema *models.Schema
@@ -154,130 +146,126 @@ func applyAuth(auths []models.Auth, ctx string) {
 	}
 }
 
+func insert(conn any, ctx *handlers.HandlerCtx, dbType string, table string, columns []string, values [][]any) error {
+	if dbType == "PostgreSQL" {
+		if conn, ok := conn.(*sql.DB); ok {
+			return ctx.PgInsert(conn, table, columns, values)
+		}
+		return fmt.Errorf("db is not type of PostgreSQL")
+	}
+	if dbType == "MySQL" {
+		if conn, ok := conn.(*sql.DB); ok {
+			return ctx.MyInsert(conn, table, columns, values)
+		}
+		return fmt.Errorf("db is not type of MySQL")
+	}
+	if dbType == "Cassandra" {
+		if conn, ok := conn.(*gocql.Session); ok {
+			return ctx.CsInsert(conn, table, columns, values)
+		}
+		return fmt.Errorf("db is not type of Cassandra")
+	}
+	if dbType == "MongoDB" {
+		if conn, ok := conn.(*mongo.Database); ok {
+			return ctx.MongoInsert(conn, table, columns, values)
+		}
+		return fmt.Errorf("db is not type of MongoDB")
+	}
+	return fmt.Errorf("db with type of '%s' is not found", dbType)
+}
+
+func delete(conn any, ctx *handlers.HandlerCtx, dbType string, table string, wheres []*models.Cond) (int, error) {
+	if dbType == "PostgreSQL" {
+		if conn, ok := conn.(*sql.DB); ok {
+			return ctx.PgDelete(conn, table, wheres)
+		}
+		return 0, fmt.Errorf("db is not type of PostgreSQL")
+	}
+	if dbType == "MySQL" {
+		if conn, ok := conn.(*sql.DB); ok {
+			return ctx.MyDelete(conn, table, wheres)
+		}
+		return 0, fmt.Errorf("db is not type of MySQL")
+	}
+	if dbType == "Cassandra" {
+		if conn, ok := conn.(*gocql.Session); ok {
+			return ctx.CsDelete(conn, table, wheres)
+		}
+		return 0, fmt.Errorf("db is not type of Cassandra")
+	}
+	if dbType == "MongoDB" {
+		if conn, ok := conn.(*mongo.Database); ok {
+			return ctx.MongoDelete(conn, table, wheres)
+		}
+		return 0, fmt.Errorf("db is not type of MongoDB")
+	}
+	return 0, fmt.Errorf("db with type of '%s' is not found", dbType)
+}
+
+func update(conn any, ctx *handlers.HandlerCtx, dbType string, table string, wheres []*models.Cond, values map[string]any) (int, error) {
+	if dbType == "PostgreSQL" {
+		if conn, ok := conn.(*sql.DB); ok {
+			return ctx.PgUpdate(conn, table, wheres, values)
+		}
+		return 0, fmt.Errorf("db is not type of PostgreSQL")
+	}
+	if dbType == "MySQL" {
+		if conn, ok := conn.(*sql.DB); ok {
+			return ctx.MyUpdate(conn, table, wheres, values)
+		}
+		return 0, fmt.Errorf("db is not type of MySQL")
+	}
+	if dbType == "Cassandra" {
+		if conn, ok := conn.(*gocql.Session); ok {
+			return ctx.CsUpdate(conn, table, wheres, values)
+		}
+		return 0, fmt.Errorf("db is not type of Cassandra")
+	}
+	if dbType == "MongoDB" {
+		if conn, ok := conn.(*mongo.Database); ok {
+			return ctx.MongoUpdate(conn, table, wheres, values)
+		}
+		return 0, fmt.Errorf("db is not type of MongoDB")
+	}
+	return 0, fmt.Errorf("db with type of '%s' is not found", dbType)
+}
+
+func read(conn any, ctx *handlers.HandlerCtx, dbType string, table *models.QueryTable, wheres []*models.Cond) ([]map[string]any, error) {
+	if dbType == "PostgreSQL" {
+		if conn, ok := conn.(*sql.DB); ok {
+			return ctx.PgRead(conn, table, wheres)
+		}
+		return nil, fmt.Errorf("db is not type of PostgreSQL")
+	}
+	if dbType == "MySQL" {
+		if conn, ok := conn.(*sql.DB); ok {
+			return ctx.MyRead(conn, table, wheres)
+		}
+		return nil, fmt.Errorf("db is not type of MySQL")
+	}
+	if dbType == "Cassandra" {
+		if conn, ok := conn.(*gocql.Session); ok {
+			return ctx.CsRead(conn, table, wheres)
+		}
+		return nil, fmt.Errorf("db is not type of Cassandra")
+	}
+	if dbType == "MongoDB" {
+		if conn, ok := conn.(*mongo.Database); ok {
+			return ctx.MongoRead(conn, table, wheres)
+		}
+		return nil, fmt.Errorf("db is not type of MongoDB")
+	}
+	return nil, fmt.Errorf("db with type of '%s' is not found", dbType)
+}
+
 func Start(dbschema *models.Schema) {
-	if drivers != nil || databases != nil {
+	if databases != nil {
 		fmt.Println("DB already initiated")
 		return
 	}
 	schema = dbschema
-	drivers = make(map[string]*driver)
 	databases = make([]*database, 0)
 	databaseTable = make(map[string]int)
-
-	drivers["PostgreSQL"] = &driver{
-		Type: "PostgreSQL",
-		insert: func(conn any, table string, columns []string, values [][]any) error {
-			if conn, ok := conn.(*sql.DB); ok {
-				return handlers.PgInsert(conn, table, columns, values)
-			}
-			return fmt.Errorf("db is not type of PostgreSQL")
-		},
-		delete: func(conn any, table string, wheres []*models.Cond) (int, error) {
-			if conn, ok := conn.(*sql.DB); ok {
-				return handlers.PgDelete(conn, table, wheres)
-			}
-			return 0, fmt.Errorf("db is not type of PostgreSQL")
-		},
-		update: func(conn any, table string, wheres []*models.Cond, values map[string]any) (int, error) {
-			if conn, ok := conn.(*sql.DB); ok {
-				return handlers.PgUpdate(conn, table, wheres, values)
-			}
-			return 0, fmt.Errorf("db is not type of PostgreSQL")
-		},
-		read: func(conn any, table *models.QueryTable, wheres []*models.Cond) ([]map[string]any, error) {
-			if conn, ok := conn.(*sql.DB); ok {
-				return handlers.PgRead(conn, table, wheres)
-			}
-			return nil, fmt.Errorf("db is not type of PostgreSQL")
-		},
-	}
-
-	drivers["MySQL"] = &driver{
-		Type: "MySQL",
-		insert: func(conn any, table string, columns []string, values [][]any) error {
-			if conn, ok := conn.(*sql.DB); ok {
-				return handlers.MyInsert(conn, table, columns, values)
-			}
-			return fmt.Errorf("db is not type of MySQL")
-		},
-		delete: func(conn any, table string, wheres []*models.Cond) (int, error) {
-			if conn, ok := conn.(*sql.DB); ok {
-				return handlers.MyDelete(conn, table, wheres)
-			}
-			return 0, fmt.Errorf("db is not type of MySQL")
-		},
-		update: func(conn any, table string, wheres []*models.Cond, values map[string]any) (int, error) {
-			if conn, ok := conn.(*sql.DB); ok {
-				return handlers.MyUpdate(conn, table, wheres, values)
-			}
-			return 0, fmt.Errorf("db is not type of MySQL")
-		},
-		read: func(conn any, table *models.QueryTable, wheres []*models.Cond) ([]map[string]any, error) {
-			if conn, ok := conn.(*sql.DB); ok {
-				return handlers.MyRead(conn, table, wheres)
-			}
-			return nil, fmt.Errorf("db is not type of MySQL")
-		},
-	}
-
-	drivers["Cassandra"] = &driver{
-		Type: "Cassandra",
-		insert: func(conn any, table string, columns []string, values [][]any) error {
-			if conn, ok := conn.(*gocql.Session); ok {
-				return handlers.CsInsert(conn, table, columns, values)
-			}
-			return fmt.Errorf("db is not type of Cassandra")
-		},
-		delete: func(conn any, table string, wheres []*models.Cond) (int, error) {
-			if conn, ok := conn.(*gocql.Session); ok {
-				return handlers.CsDelete(conn, table, wheres)
-			}
-			return 0, fmt.Errorf("db is not type of Cassandra")
-		},
-		update: func(conn any, table string, wheres []*models.Cond, values map[string]any) (int, error) {
-			if conn, ok := conn.(*gocql.Session); ok {
-				return handlers.CsUpdate(conn, table, wheres, values)
-			}
-			return 0, fmt.Errorf("db is not type of Cassandra")
-		},
-		read: func(conn any, table *models.QueryTable, wheres []*models.Cond) ([]map[string]any, error) {
-			if conn, ok := conn.(*gocql.Session); ok {
-				return handlers.CsRead(conn, table, wheres)
-			}
-			return nil, fmt.Errorf("db is not type of Cassandra")
-		},
-	}
-
-	drivers["MongoDB"] = &driver{
-		Type: "MongoDB",
-		insert: func(conn any, table string, columns []string, values [][]any) error {
-			if conn, ok := conn.(*mongo.Database); ok {
-				return handlers.MongoInsert(conn, table, columns, values)
-			}
-
-			return fmt.Errorf("db is not type of MongoDB")
-		},
-		delete: func(conn any, table string, wheres []*models.Cond) (int, error) {
-			if conn, ok := conn.(*mongo.Database); ok {
-				return handlers.MongoDelete(conn, table, wheres)
-			}
-
-			return 0, fmt.Errorf("db is not type of MongoDB")
-		},
-		update: func(conn any, table string, wheres []*models.Cond, values map[string]any) (int, error) {
-			if conn, ok := conn.(*mongo.Database); ok {
-				return handlers.MongoUpdate(conn, table, wheres, values)
-			}
-
-			return 0, fmt.Errorf("db is not type of MongoDB")
-		},
-		read: func(conn any, table *models.QueryTable, wheres []*models.Cond) ([]map[string]any, error) {
-			if conn, ok := conn.(*mongo.Database); ok {
-				return handlers.MongoRead(conn, table, wheres)
-			}
-			return nil, fmt.Errorf("db is not type of MongoDB")
-		},
-	}
 
 	createAuthRules = make(map[string][]map[string]any)
 	updateAuthRules = make(map[string][]map[string]any)

@@ -29,7 +29,7 @@ func parseOp(op string) string {
 	return ""
 }
 
-func MongoRead(conn *mongo.Database, table *models.QueryTable, wheres []*models.Cond) ([]map[string]any, error) {
+func (me *HandlerCtx) MongoRead(conn *mongo.Database, table *models.QueryTable, wheres []*models.Cond) ([]map[string]any, error) {
 	coll := conn.Collection(table.Name)
 
 	filter := map[string]any{}

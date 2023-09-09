@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func MyInsert(conn *sql.DB, table string, columns []string, values [][]any) error {
+func (me *HandlerCtx) MyInsert(conn *sql.DB, table string, columns []string, values [][]any) error {
 	var valueStrings []string
 	var valueArgs []interface{}
 	columnCount := len(columns) // Assuming the number of columns is the same for all rows

@@ -20,7 +20,7 @@ func buildWhereQuery(wheres []*models.Cond, queryParams *[]any, isDollarPlacehol
 			// TODO: Check if deps or not
 			if vals, ok := cond.Left.Value.([]any); ok {
 				if len(vals) == 0 {
-						query = fmt.Sprintf("%s IN ()", cond.Right.Field)
+					query = fmt.Sprintf("%s IN ()", cond.Right.Field)
 				} else {
 					right := ""
 					for idx, val := range vals {
@@ -51,7 +51,7 @@ func buildWhereQuery(wheres []*models.Cond, queryParams *[]any, isDollarPlacehol
 		} else if cond.Right.Value != nil {
 			if vals, ok := cond.Right.Value.([]any); ok {
 				if len(vals) == 0 {
-						query = fmt.Sprintf("%s IN ()", cond.Left.Field)
+					query = fmt.Sprintf("%s IN ()", cond.Left.Field)
 				} else {
 					right := ""
 					for idx, val := range vals {
@@ -87,7 +87,7 @@ func buildWhereQuery(wheres []*models.Cond, queryParams *[]any, isDollarPlacehol
 	return whereQueries
 }
 
-func CsRead(conn *gocql.Session, table *models.QueryTable, wheres []*models.Cond) ([]map[string]any, error) {
+func (me *HandlerCtx) CsRead(conn *gocql.Session, table *models.QueryTable, wheres []*models.Cond) ([]map[string]any, error) {
 	selects := []string{}
 	if len(table.SelectFields) == 0 {
 		selects = append(selects, "*")

@@ -9,7 +9,7 @@ import (
 	"github.com/gocql/gocql"
 )
 
-func CsUpdate(conn *gocql.Session, table string, wheres []*models.Cond, values map[string]any) (int, error) {
+func (me *HandlerCtx) CsUpdate(conn *gocql.Session, table string, wheres []*models.Cond, values map[string]any) (int, error) {
 	valueQueries := []string{}
 	queryParams := []any{}
 	for name, value := range values {

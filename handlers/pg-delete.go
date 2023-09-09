@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func PgDelete(conn *sql.DB, table string, wheres []*models.Cond) (int, error) {
+func (me *HandlerCtx) PgDelete(conn *sql.DB, table string, wheres []*models.Cond) (int, error) {
 	queryParams := []any{}
 	whereQueries := buildWhereQuery(wheres, &queryParams, true)
 

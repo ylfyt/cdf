@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func MyDelete(conn *sql.DB, table string, wheres []*models.Cond) (int, error) {
+func (me *HandlerCtx) MyDelete(conn *sql.DB, table string, wheres []*models.Cond) (int, error) {
 	queryParams := []any{}
 	whereQueries := buildWhereQuery(wheres, &queryParams, false)
 

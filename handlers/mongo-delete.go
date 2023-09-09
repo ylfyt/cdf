@@ -10,7 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func MongoDelete(conn *mongo.Database, table string, wheres []*models.Cond) (int, error) {
+func (me *HandlerCtx) MongoDelete(conn *mongo.Database, table string, wheres []*models.Cond) (int, error) {
 	coll := conn.Collection(table)
 	if coll == nil {
 		return 0, fmt.Errorf("collection %s not found", table)

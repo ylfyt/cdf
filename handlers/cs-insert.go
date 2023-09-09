@@ -7,7 +7,7 @@ import (
 	"github.com/gocql/gocql"
 )
 
-func CsInsert(conn *gocql.Session, table string, columns []string, values [][]any) error {
+func (me *HandlerCtx) CsInsert(conn *gocql.Session, table string, columns []string, values [][]any) error {
 	var valueStrings []string
 	var valueArgs []any
 	columnCount := len(columns)

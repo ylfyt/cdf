@@ -2,6 +2,6 @@ package handlers
 
 import "cdf/models"
 
-type Handler struct {
+type HandlerCtx struct {
 	Fields map[string]*models.FieldInfo
 }

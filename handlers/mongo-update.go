@@ -10,7 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func MongoUpdate(conn *mongo.Database, table string, wheres []*models.Cond, values map[string]any) (int, error) {
+func (me *HandlerCtx) MongoUpdate(conn *mongo.Database, table string, wheres []*models.Cond, values map[string]any) (int, error) {
 	coll := conn.Collection(table)
 	if coll == nil {
 		return 0, fmt.Errorf("collection %s not found", table)

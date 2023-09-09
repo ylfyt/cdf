@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func PgUpdate(conn *sql.DB, table string, wheres []*models.Cond, values map[string]any) (int, error) {
+func (me *HandlerCtx) PgUpdate(conn *sql.DB, table string, wheres []*models.Cond, values map[string]any) (int, error) {
 	valueQueries := []string{}
 	queryParams := []any{}
 	for name, value := range values {

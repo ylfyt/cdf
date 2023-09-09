@@ -9,7 +9,7 @@ import (
 	"github.com/gocql/gocql"
 )
 
-func CsDelete(conn *gocql.Session, table string, wheres []*models.Cond) (int, error) {
+func (me *HandlerCtx) CsDelete(conn *gocql.Session, table string, wheres []*models.Cond) (int, error) {
 	queryParams := []any{}
 	whereQueries := buildWhereQuery(wheres, &queryParams, false)
 

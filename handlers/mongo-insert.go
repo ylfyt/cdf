@@ -5,7 +5,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func MongoInsert(conn *mongo.Database, table string, columns []string, values [][]any) error {
+func (me *HandlerCtx) MongoInsert(conn *mongo.Database, table string, columns []string, values [][]any) error {
 	documents := []any{}
 	for _, tuple := range values {
 		document := map[string]any{}

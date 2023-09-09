@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func PgRead(conn *sql.DB, table *models.QueryTable, wheres []*models.Cond) ([]map[string]any, error) {
+func (me *HandlerCtx) PgRead(conn *sql.DB, table *models.QueryTable, wheres []*models.Cond) ([]map[string]any, error) {
 	selects := []string{}
 	if len(table.SelectFields) == 0 {
 		selects = append(selects, "*")
