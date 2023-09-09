@@ -264,6 +264,137 @@ func buildKey(table *models.QueryTable, qua string, value map[string]any) string
 	return key
 }
 
+func generateFinalValue(res []map[string]any, fields []*Field, query *models.OrderMap[string, *models.QueryTable]) []map[string]any {
+	final := []map[string]any{}
+	for _, re := range res {
+		newValue := map[string]any{}
+		for _, field := range fields {
+			if field.Qualifier == query.Keys[0] {
+				as := field.As
+				if as == "" {
+					as = field.Field
+				}
+				if field.Value != nil {
+					newValue[as] = field.Value
+				} else {
+					newValue[as] = re[field.Field]
+				}
+			} else {
+				join, ok := re[field.Qualifier].([]any)
+				if !ok {
+					continue
+				}
+				joinName := field.Table
+				test, exist := newValue[joinName]
+				if !exist {
+					newJoin := make([]map[string]any, len(join))
+					for idx := range join {
+						newJoin[idx] = make(map[string]any)
+					}
+					newValue[joinName] = newJoin
+					test = newJoin
+				}
+
+				for idx, val := range join {
+					val, ok1 := val.(map[string]any)
+					a, ok2 := test.([]map[string]any)
+					if !ok1 || !ok2 {
+						continue
+					}
+					as := field.As
+					if as == "" {
+						as = field.Field
+					}
+					if field.Value != nil {
+						a[idx][as] = field.Value
+					} else {
+						a[idx][as] = val[field.Field]
+					}
+				}
+			}
+		}
+		final = append(final, newValue)
+	}
+
+	return final
+}
+
+func processJoin(query *models.OrderMap[string, *models.QueryTable], raw map[string][]map[string]any) []map[string]any {
+	res := []map[string]any{}
+	res = append(res, raw[query.Keys[0]]...)
+
+	for i := 1; i < len(query.Keys); i++ {
+		qua := query.Keys[i]
+		table := query.Get(qua)
+		joinMap := map[string][]any{}
+		for _, val := range raw[qua] {
+			key := buildKey(table, qua, val)
+			if joinMap[key] == nil {
+				joinMap[key] = make([]any, 0)
+			}
+			joinMap[key] = append(joinMap[key], val)
+		}
+
+		for _, re := range res {
+			keys := []string{""}
+			for _, cond := range table.DepConds {
+				if cond.Left.Qualifier != qua {
+					qua := cond.Left.Qualifier
+					field := cond.Left.Field
+					if qua == query.Keys[0] {
+						for idx := range keys {
+							keys[idx] += fmt.Sprint(re[field]) + "_"
+						}
+					} else {
+						if val, ok := re[qua].([]any); ok {
+							newKeys := []string{}
+							for idx := range keys {
+								for _, a := range val {
+									if a, ok := a.(map[string]any); ok {
+										newKeys = append(newKeys, keys[idx]+fmt.Sprint(a[field])+"_")
+									}
+								}
+							}
+							keys = newKeys
+						} else {
+							fmt.Println("???", qua, reflect.TypeOf(re[qua]))
+						}
+					}
+				} else if cond.Right.Qualifier != qua {
+					qua := cond.Right.Qualifier
+					field := cond.Right.Field
+					if qua == query.Keys[0] {
+						for idx := range keys {
+							keys[idx] += fmt.Sprint(re[field]) + "_"
+						}
+					} else {
+						if val, ok := re[qua].([]any); ok {
+							newKeys := []string{}
+							for idx := range keys {
+								for _, a := range val {
+									if a, ok := a.(map[string]any); ok {
+										newKeys = append(newKeys, keys[idx]+fmt.Sprint(a[field])+"_")
+									}
+								}
+							}
+							keys = newKeys
+						} else {
+							fmt.Println("???", qua, reflect.TypeOf(re[qua]))
+						}
+					}
+				}
+			}
+			joinValues := []any{}
+			for _, key := range keys {
+				joinValues = append(joinValues, joinMap[key]...)
+			}
+			re[qua] = joinValues
+		}
+	}
+
+	return res
+}
+
 func (me *Handler) selectAction(stmt *sqlparser.Select) (any, error) {
 	query, err := parseFrom(stmt)
 	if err != nil {
@@ -277,6 +408,27 @@ func (me *Handler) selectAction(stmt *sqlparser.Select) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Printf("Before: %+v\n", fields)
+	newFields := []*Field{}
+	for _, field := range fields {
+		if field.Value != nil || field.Field != "*" {
+			newFields = append(newFields, field)
+			continue
+		}
+		db := getDb(field.Table)
+		fieldInfo := getTableFields(db.Name, field.Table)
+		for fieldKey := range fieldInfo {
+			newFields = append(newFields, &Field{
+				Qualifier: field.Qualifier,
+				Table:     field.Table,
+				As:        "",
+				Field:     fieldKey,
+				Value:     nil,
+			})
+		}
+	}
+	fields = newFields
 
 	tables := map[string]bool{}
 	for _, field := range fields {
@@ -371,6 +523,7 @@ func (me *Handler) selectAction(stmt *sqlparser.Select) (any, error) {
 		raw[qua] = res
 	}
 
+	// PENDING RULES
 	for table := range tables {
 		db := getDb(table)
 		if db == nil {
@@ -414,77 +567,7 @@ func (me *Handler) selectAction(stmt *sqlparser.Select) (any, error) {
 		}
 	}
 
-	res := []map[string]any{}
-	res = append(res, raw[query.Keys[0]]...)
-
-	for i := 1; i < len(query.Keys); i++ {
-		qua := query.Keys[i]
-		table := query.Get(qua)
-		joinMap := map[string][]any{}
-		for _, val := range raw[qua] {
-			key := buildKey(table, qua, val)
-			if joinMap[key] == nil {
-				joinMap[key] = make([]any, 0)
-			}
-			joinMap[key] = append(joinMap[key], val)
-		}
-
-		for _, re := range res {
-			keys := []string{""}
-			for _, cond := range table.DepConds {
-				if cond.Left.Qualifier != qua {
-					qua := cond.Left.Qualifier
-					field := cond.Left.Field
-					if qua == query.Keys[0] {
-						for idx := range keys {
-							keys[idx] += fmt.Sprint(re[field]) + "_"
-						}
-					} else {
-						if val, ok := re[qua].([]any); ok {
-							newKeys := []string{}
-							for idx := range keys {
-								for _, a := range val {
-									if a, ok := a.(map[string]any); ok {
-										newKeys = append(newKeys, keys[idx]+fmt.Sprint(a[field])+"_")
-									}
-								}
-							}
-							keys = newKeys
-						} else {
-							fmt.Println("???", qua, reflect.TypeOf(re[qua]))
-						}
-					}
-				} else if cond.Right.Qualifier != qua {
-					qua := cond.Right.Qualifier
-					field := cond.Right.Field
-					if qua == query.Keys[0] {
-						for idx := range keys {
-							keys[idx] += fmt.Sprint(re[field]) + "_"
-						}
-					} else {
-						if val, ok := re[qua].([]any); ok {
-							newKeys := []string{}
-							for idx := range keys {
-								for _, a := range val {
-									if a, ok := a.(map[string]any); ok {
-										newKeys = append(newKeys, keys[idx]+fmt.Sprint(a[field])+"_")
-									}
-								}
-							}
-							keys = newKeys
-						} else {
-							fmt.Println("???", qua, reflect.TypeOf(re[qua]))
-						}
-					}
-				}
-			}
-			joinValues := []any{}
-			for _, key := range keys {
-				joinValues = append(joinValues, joinMap[key]...)
-			}
-			re[qua] = joinValues
-		}
-	}
-
-	return res, nil
+	res := processJoin(query, raw)
+	final := generateFinalValue(res, fields, query)
+	return final, nil
 }
