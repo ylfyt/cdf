@@ -3,7 +3,9 @@ package handlers
 import (
 	"cdf/models"
 	"context"
+	"encoding/json"
 	"fmt"
+	"reflect"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -25,16 +27,37 @@ func (me *HandlerCtx) MongoUpdate(conn *mongo.Database, table string, wheres []*
 		op := parseOp(cond.Op)
 		field := cond.Left.Field
 		val := cond.Right.Value
-		if field == "_id" {
-			if _id, ok := val.(string); ok {
-				if objectID, err := primitive.ObjectIDFromHex(_id); err == nil {
-					val = objectID
-				}
+		fieldInfo := me.Fields[field]
+		if fieldInfo.Type == "ObjectID" {
+			if objectID, err := primitive.ObjectIDFromHex(fmt.Sprint(val)); err == nil {
+				val = objectID
 			}
 		}
+
 		filter[field] = bson.M{
 			op: val,
 		}
+	}
+
+	for field := range values {
+		fieldInfo := me.Fields[field]
+		if fieldInfo.Type != "object" && fieldInfo.Type != "_object" {
+			continue
+		}
+		var tmp any
+		err := json.Unmarshal([]byte(fmt.Sprint(values[field])), &tmp)
+		if err != nil {
+			return 0, err
+		}
+
+		if fieldInfo.Type == "_object" && reflect.TypeOf(tmp).Kind() != reflect.Slice {
+			return 0, fmt.Errorf("value of '%s' is not array of object", field)
+		}
+		if fieldInfo.Type == "object" && reflect.TypeOf(tmp).Kind() != reflect.Map {
+			return 0, fmt.Errorf("value of '%s' is not an object", field)
+		}
+
+		values[field] = tmp
 	}
 
 	update := bson.M{"$set": values}

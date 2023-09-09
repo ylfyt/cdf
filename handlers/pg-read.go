@@ -4,9 +4,23 @@ import (
 	"cdf/models"
 	"cdf/utils"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 )
+
+func parseObject(scan any) any {
+	val, ok := scan.([]byte)
+	if !ok {
+		return scan
+	}
+	var tmp any
+	err := json.Unmarshal(val, &tmp)
+	if err != nil {
+		fmt.Println("Err", err)
+	}
+	return tmp
+}
 
 func (me *HandlerCtx) PgRead(conn *sql.DB, table *models.QueryTable, wheres []*models.Cond) ([]map[string]any, error) {
 	selects := []string{}
@@ -66,7 +80,16 @@ func (me *HandlerCtx) PgRead(conn *sql.DB, table *models.QueryTable, wheres []*m
 		}
 		row := make(map[string]any)
 		for i, v := range columns {
-			row[v] = scans[i]
+			field := me.Fields[v]
+			if field == nil {
+				return nil, fmt.Errorf("type??")
+			}
+			if field.Type != "object" && field.Type != "_object" {
+				row[v] = scans[i]
+				continue
+			}
+			val := parseObject(scans[i])
+			row[v] = val
 		}
 		result = append(result, row)
 	}

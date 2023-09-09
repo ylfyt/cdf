@@ -73,7 +73,11 @@ func main() {
 	// return
 
 	stmt, err := sqlparser.Parse(`
-		UPDATE product SET detail = 'dasodsa' WHERE id = 1
+		UPDATE orders 
+		SET
+			payment = '{"currency": "IDR", "amount": 20000, "type": "BANK-VA", "status": "PENDING"}'
+		WHERE
+			_id = '64fcc7965559d3928dd9a074'
 	`)
 	if err != nil {
 		fmt.Println("err", err)

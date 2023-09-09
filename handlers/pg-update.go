@@ -11,9 +11,17 @@ import (
 func (me *HandlerCtx) PgUpdate(conn *sql.DB, table string, wheres []*models.Cond, values map[string]any) (int, error) {
 	valueQueries := []string{}
 	queryParams := []any{}
-	for name, value := range values {
+	for column, value := range values {
 		queryParams = append(queryParams, value)
-		valueQueries = append(valueQueries, fmt.Sprintf(`%s = $%d`, name, len(queryParams)))
+		cast := ""
+		field := me.Fields[column]
+		if field == nil {
+			return 0, fmt.Errorf("type??")
+		}
+		if field.Type == "object" || field.Type == "_object" {
+			cast = "JSON"
+		}
+		valueQueries = append(valueQueries, fmt.Sprintf(`%s = $%d%s`, column, len(queryParams), utils.Ternary(cast != "", "::JSON", "")))
 	}
 
 	whereQueries := buildWhereQuery(wheres, &queryParams, true)
