@@ -25,65 +25,14 @@ func (me *Handler) selectAction(stmt *sqlparser.Select) (any, error) {
 		return nil, err
 	}
 
-	fmt.Printf("Before: %+v\n", fields)
-	newFields := []*Field{}
-	for _, field := range fields {
-		if field.Value != nil || field.Field != "*" {
-			newFields = append(newFields, field)
-			continue
-		}
-		db := getDb(field.Table)
-		fieldInfo := getTableFields(db.Name, field.Table)
-		for fieldKey := range fieldInfo {
-			newFields = append(newFields, &Field{
-				Qualifier: field.Qualifier,
-				Table:     field.Table,
-				As:        "",
-				Field:     fieldKey,
-				Value:     nil,
-			})
-		}
-	}
-	fields = newFields
-
 	tables := map[string]bool{}
 	for _, field := range fields {
 		tables[field.Table] = true
 	}
 
-	for table := range tables {
-		db := getDb(table)
-		if db == nil {
-			return nil, fmt.Errorf("table %s is not found", table)
-		}
-		rules := readAuthRules[db.Name]
-		err := me.validateRules(rules, db.Name, "", nil, nil)
-		if err != nil {
-			return nil, err
-		}
-
-		rules = readAuthRules[db.Name+"."+table]
-		newRules := []map[string]any{}
-		for _, rule := range rules {
-			isPending := false
-			for key, val := range rule {
-				if strings.HasPrefix(key, "$") {
-					isPending = true
-					break
-				}
-				if val, ok := val.(string); ok && strings.HasPrefix(val, "$") {
-					isPending = true
-					break
-				}
-			}
-			if !isPending {
-				newRules = append(newRules, rule)
-			}
-		}
-		err = me.validateRules(newRules, db.Name, table, nil, nil)
-		if err != nil {
-			return nil, err
-		}
+	err = me.validateAuth(tables, query, false, nil)
+	if err != nil {
+		return nil, err
 	}
 
 	var wheres []*models.Cond
@@ -118,7 +67,6 @@ func (me *Handler) selectAction(stmt *sqlparser.Select) (any, error) {
 	}
 
 	raw := map[string][]map[string]any{}
-
 	for _, qua := range query.Keys {
 		table := query.Get(qua)
 		// Parse db wheres
@@ -140,15 +88,26 @@ func (me *Handler) selectAction(stmt *sqlparser.Select) (any, error) {
 	}
 
 	// PENDING RULES
+	err = me.validateAuth(tables, query, true, raw)
+	if err != nil {
+		return nil, err
+	}
+
+	res := processJoin(query, raw)
+	final := generateFinalValue(res, fields, query)
+	return final, nil
+}
+
+func (me *Handler) validateAuth(tables map[string]bool, query *models.OrderMap[string, *models.QueryTable], validateData bool, raw map[string][]map[string]any) error {
 	for table := range tables {
 		db := getDb(table)
 		if db == nil {
-			return nil, fmt.Errorf("table %s is not found", table)
+			return fmt.Errorf("table %s is not found", table)
 		}
 		rules := readAuthRules[db.Name]
 		err := me.validateRules(rules, db.Name, "", nil, nil)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		rules = readAuthRules[db.Name+"."+table]
@@ -165,10 +124,22 @@ func (me *Handler) selectAction(stmt *sqlparser.Select) (any, error) {
 					break
 				}
 			}
-			if isPending {
+			if validateData && isPending {
+				newRules = append(newRules, rule)
+			}
+			if !validateData && !isPending {
 				newRules = append(newRules, rule)
 			}
 		}
+
+		if !validateData {
+			err = me.validateRules(newRules, db.Name, table, nil, nil)
+			if err != nil {
+				return err
+			}
+			continue
+		}
+
 		qua := ""
 		for _, quer := range query.Keys {
 			queryTable := query.Get(quer)
@@ -179,13 +150,11 @@ func (me *Handler) selectAction(stmt *sqlparser.Select) (any, error) {
 		data := raw[qua]
 		err = me.validateRules(newRules, db.Name, table, nil, data)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	res := processJoin(query, raw)
-	final := generateFinalValue(res, fields, query)
-	return final, nil
+	return nil
 }
 
 func parseTableExprs(expr sqlparser.TableExpr, tables *models.OrderMap[string, *models.QueryTable], conds []*models.Cond, join string) {
@@ -282,13 +251,17 @@ func parseSelectField(stmt *sqlparser.Select, query *models.OrderMap[string, *mo
 			if qua == "" {
 				qua = table.Name
 			}
-			field := &Field{
-				Qualifier: qua,
-				Table:     table.Name,
-				As:        "",
-				Field:     "*",
+			db := getDb(table.Name)
+			fieldInfo := getTableFields(db.Name, table.Name)
+			for fieldKey := range fieldInfo {
+				newFields = append(newFields, &Field{
+					Qualifier: qua,
+					Table:     table.Name,
+					As:        "",
+					Field:     fieldKey,
+					Value:     nil,
+				})
 			}
-			newFields = append(newFields, field)
 			continue
 		}
 		if aliased, ok := expr.(*sqlparser.AliasedExpr); ok {
@@ -318,6 +291,9 @@ func parseSelectField(stmt *sqlparser.Select, query *models.OrderMap[string, *mo
 			}
 			if table == nil {
 				return nil, fmt.Errorf("table for qualifier %s is not found", qua)
+			}
+			if qua == "" {
+				qua = table.Name
 			}
 			tableField := colName.Name.String()
 			field := &Field{
@@ -388,9 +364,17 @@ func applyDepWheres(depConds []*models.Cond, qua string, wheres *[]*models.Cond,
 		}
 		if cond.Left.Qualifier == qua {
 			result := rawValue[cond.Right.Qualifier]
+			check := map[string]bool{}
 			values := []any{}
 			for _, res := range result {
-				values = append(values, res[cond.Right.Field])
+				val := res[cond.Right.Field]
+				key := fmt.Sprint(val)
+				_, exist := check[key]
+				if exist {
+					continue
+				}
+				check[key] = true
+				values = append(values, val)
 			}
 			*wheres = append(*wheres, &models.Cond{
 				Left: cond.Left,
@@ -403,9 +387,17 @@ func applyDepWheres(depConds []*models.Cond, qua string, wheres *[]*models.Cond,
 		}
 		if cond.Right.Qualifier == qua {
 			result := rawValue[cond.Left.Qualifier]
+			check := map[string]bool{}
 			values := []any{}
 			for _, res := range result {
-				values = append(values, res[cond.Left.Field])
+				val := res[cond.Left.Field]
+				key := fmt.Sprint(val)
+				_, exist := check[key]
+				if exist {
+					continue
+				}
+				check[key] = true
+				values = append(values, val)
 			}
 			*wheres = append(*wheres, &models.Cond{
 				Left: cond.Right,

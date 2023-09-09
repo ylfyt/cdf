@@ -75,15 +75,14 @@ func main() {
 
 	stmt, err := sqlparser.Parse(`
 		SELECT
-			p.id,
-			p.name,
-			c.name as category_name
+			p.*,
+			c.*
 		FROM
 			product p
 			JOIN product_category pc ON p.id = pc.product_id
 			JOIN category c ON c.id = pc.category_id
 		WHERE
-			p.id < 10
+			p.id = 1
 	`)
 	if err != nil {
 		fmt.Println("err", err)
