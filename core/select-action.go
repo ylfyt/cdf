@@ -489,9 +489,6 @@ func generateFinalValue(res []map[string]any, fields []*Field, query *models.Ord
 }
 
 func processJoin(query *models.OrderMap[string, *models.QueryTable], raw map[string][]map[string]any) []map[string]any {
-	res := []map[string]any{}
-	res = append(res, raw[query.Keys[0]]...)
-
 	for i := 1; i < len(query.Keys); i++ {
 		qua := query.Keys[i]
 		table := query.Get(qua)
@@ -504,7 +501,7 @@ func processJoin(query *models.OrderMap[string, *models.QueryTable], raw map[str
 			joinMap[key] = append(joinMap[key], val)
 		}
 
-		for _, re := range res {
+		for _, value := range raw[query.Keys[0]] {
 			keys := []string{""}
 			for _, cond := range table.DepConds {
 				if cond.Left.Qualifier != qua {
@@ -512,10 +509,10 @@ func processJoin(query *models.OrderMap[string, *models.QueryTable], raw map[str
 					field := cond.Left.Field
 					if qua == query.Keys[0] {
 						for idx := range keys {
-							keys[idx] += fmt.Sprint(re[field]) + "_"
+							keys[idx] += fmt.Sprint(value[field]) + "_"
 						}
 					} else {
-						if val, ok := re[qua].([]any); ok {
+						if val, ok := value[qua].([]any); ok {
 							newKeys := []string{}
 							for idx := range keys {
 								for _, a := range val {
@@ -526,7 +523,7 @@ func processJoin(query *models.OrderMap[string, *models.QueryTable], raw map[str
 							}
 							keys = newKeys
 						} else {
-							fmt.Println("???", qua, reflect.TypeOf(re[qua]))
+							fmt.Println("???", qua, reflect.TypeOf(value[qua]))
 						}
 					}
 				} else if cond.Right.Qualifier != qua {
@@ -534,10 +531,10 @@ func processJoin(query *models.OrderMap[string, *models.QueryTable], raw map[str
 					field := cond.Right.Field
 					if qua == query.Keys[0] {
 						for idx := range keys {
-							keys[idx] += fmt.Sprint(re[field]) + "_"
+							keys[idx] += fmt.Sprint(value[field]) + "_"
 						}
 					} else {
-						if val, ok := re[qua].([]any); ok {
+						if val, ok := value[qua].([]any); ok {
 							newKeys := []string{}
 							for idx := range keys {
 								for _, a := range val {
@@ -548,7 +545,7 @@ func processJoin(query *models.OrderMap[string, *models.QueryTable], raw map[str
 							}
 							keys = newKeys
 						} else {
-							fmt.Println("???", qua, reflect.TypeOf(re[qua]))
+							fmt.Println("???", qua, reflect.TypeOf(value[qua]))
 						}
 					}
 				}
@@ -557,9 +554,29 @@ func processJoin(query *models.OrderMap[string, *models.QueryTable], raw map[str
 			for _, key := range keys {
 				joinValues = append(joinValues, joinMap[key]...)
 			}
-			re[qua] = joinValues
+			value[qua] = joinValues
 		}
 	}
 
-	return res
+	final := []map[string]any{}
+	for _, value := range raw[query.Keys[0]] {
+		valid := true
+		for i := 1; i < len(query.Keys); i++ {
+			qua := query.Keys[i]
+			table := query.Get(qua)
+			if table.Join != "join" {
+				continue
+			}
+			joinValues, ok := value[qua].([]any)
+			if !ok || len(joinValues) == 0 {
+				valid = false
+			}
+		}
+		if !valid {
+			continue
+		}
+		final = append(final, value)
+	}
+
+	return final
 }
