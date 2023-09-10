@@ -213,7 +213,7 @@ func (me *Handler) validateRules(rules []map[string]any, dbName string, tableNam
 					if val, ok := authRule.(string); ok && strings.HasPrefix(val, "auth.") {
 						claimField := strings.Split(val, ".")[1]
 						if me.Claim == nil {
-							return fmt.Errorf("unauth")
+							return fmt.Errorf("unauthorized")
 						}
 						authVal, exist := me.Claim[claimField]
 						if !exist {
@@ -239,7 +239,7 @@ func (me *Handler) validateRules(rules []map[string]any, dbName string, tableNam
 			if strings.HasPrefix(key, "auth.") {
 				claimField := strings.Split(key, ".")[1]
 				if me.Claim == nil {
-					return fmt.Errorf("unauth")
+					return fmt.Errorf("unauthorized")
 				}
 				claimVal, exist := me.Claim[claimField]
 				if !exist {
@@ -288,7 +288,7 @@ func (me *Handler) validateRules(rules []map[string]any, dbName string, tableNam
 					if val, ok := authRule.(string); ok && strings.HasPrefix(val, "auth.") {
 						claimField := strings.Split(val, ".")[1]
 						if me.Claim == nil {
-							return fmt.Errorf("unauth")
+							return fmt.Errorf("unauthorized")
 						}
 						authVal, exist := me.Claim[claimField]
 						if !exist {

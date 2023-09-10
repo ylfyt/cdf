@@ -165,3 +165,15 @@ SET
   updated_at = NOW()
 WHERE
   name = 'Budi'
+
+
+INSERT INTO
+  orders (user_id, items, payment, created_at, updated_at)
+VALUES
+  (
+    2,
+    '[{"product_sku": 9101, "quantity": 10}, {"product_sku": 9102, "quantity": 20}]',
+    '{"currency": "IDR", "amount": 20000, "type": "BANK-VA", "status": "PENDING"}',
+    NOW(),
+    NULL
+  );

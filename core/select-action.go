@@ -522,6 +522,7 @@ func processJoin(query *models.OrderMap[string, *models.QueryTable], raw map[str
 							}
 							keys = newKeys
 						} else {
+							fmt.Println("dsadsasad", )
 							fmt.Println("???", qua, reflect.TypeOf(value[qua]))
 						}
 					}
@@ -544,6 +545,7 @@ func processJoin(query *models.OrderMap[string, *models.QueryTable], raw map[str
 							}
 							keys = newKeys
 						} else {
+							fmt.Println("dsadsa", )
 							fmt.Println("???", qua, reflect.TypeOf(value[qua]))
 						}
 					}

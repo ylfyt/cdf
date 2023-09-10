@@ -1,7 +1,9 @@
 {
-  "id": "int",
-  "user_id": {"type": "int", "ref": "users.id"},
-  "name": "string",
-  "description": "string",
-  "address": "string"
+  "action": "c",
+  "rule": {
+    "auth.user_id": "data.user_id",
+    "auth.age": {
+      "$gte": 20
+    }
+  }
 }
