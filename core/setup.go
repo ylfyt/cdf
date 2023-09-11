@@ -68,6 +68,9 @@ var readAuthRules map[string][]map[string]any
 func getConn(dbType string, conn string) (any, error) {
 	if dbType == "PostgreSQL" {
 		sqlDb, err := sql.Open("postgres", conn)
+		if sqlDb != nil {
+			sqlDb.SetMaxOpenConns(1000)
+		}
 		return sqlDb, err
 	}
 	if dbType == "MongoDB" {

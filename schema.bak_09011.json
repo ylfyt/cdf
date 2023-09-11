@@ -164,6 +164,14 @@
       "tables": {
         "users": {
           "name": "users",
+          "auth": [
+            {
+              "action": "r",
+              "rule": {
+                "$id": "auth.user_id"
+              }
+            }
+          ],
           "fields": {
             "id": "int",
             "first_name": "string",

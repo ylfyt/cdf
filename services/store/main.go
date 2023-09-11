@@ -38,8 +38,11 @@ func get(conn *sql.DB, query string, params ...any) ([]map[string]any, error) {
 		}
 		row := make(map[string]any)
 		for i, v := range columns {
-
-			row[v] = scans[i]
+			if val, ok := scans[i].([]byte); ok {
+				row[v] = string(val)
+			} else {
+				row[v] = scans[i]
+			}
 		}
 		result = append(result, row)
 	}
@@ -69,12 +72,33 @@ func main() {
 	})
 
 	r.GET("/store", func(ctx *gin.Context) {
-		res, err := get(db, `SELECT * FROM store`)
+		storeIdStr := ctx.Query("user")
+		userId := 0
+		if storeIdStr != "" {
+			userIdTmp, err := strconv.Atoi(storeIdStr)
+			if err != nil {
+				fmt.Println("Err", err)
+				ctx.JSON(http.StatusInternalServerError, ResponseDto{
+					Success: false,
+					Message: err.Error(),
+				})
+				return
+			}
+			userId = userIdTmp
+		}
+
+		var res []map[string]any
+		var err error
+		if userId != 0 {
+			res, err = get(db, `SELECT * FROM store WHERE user_id = ?`, userId)
+		} else {
+			res, err = get(db, `SELECT * FROM store`)
+		}
 		if err != nil {
 			fmt.Println("Err", err)
 			ctx.JSON(http.StatusInternalServerError, ResponseDto{
 				Success: false,
-				Message: "",
+				Message: err.Error(),
 			})
 			return
 		}
@@ -123,6 +147,7 @@ func main() {
 			}
 
 			if !result.Success {
+				fmt.Println("???????", result.Message)
 				ctx.JSON(http.StatusInternalServerError, ResponseDto{
 					Success: false,
 					Message: result.Message,
@@ -203,6 +228,7 @@ func main() {
 			}
 
 			if !result.Success {
+				fmt.Println("???????", result.Message)
 				ctx.JSON(http.StatusInternalServerError, ResponseDto{
 					Success: false,
 					Message: result.Message,
