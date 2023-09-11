@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 )
 
@@ -68,23 +70,25 @@ func main() {
 
 	r.GET("/product", func(ctx *gin.Context) {
 		storeIdStr := ctx.Query("store")
-		storeId := 0
+		var stores []int
 		if storeIdStr != "" {
-			storeIdTmp, err := strconv.Atoi(storeIdStr)
-			if err != nil {
-				fmt.Println("Err", err)
-				ctx.JSON(http.StatusInternalServerError, ResponseDto{
-					Success: false,
-					Message: err.Error(),
-				})
-				return
+			for _, store := range strings.Split(storeIdStr, ",") {
+				id, err := strconv.Atoi(store)
+				if err != nil {
+					fmt.Println("Err", err)
+					ctx.JSON(http.StatusInternalServerError, ResponseDto{
+						Success: false,
+						Message: err.Error(),
+					})
+					return
+				}
+				stores = append(stores, id)
 			}
-			storeId = storeIdTmp
 		}
 		var res []map[string]any
 		var err error
-		if storeId != 0 {
-			res, err = get(db, `SELECT * FROM product WHERE store_id = $1`, storeId)
+		if len(stores) != 0 {
+			res, err = get(db, `SELECT * FROM product WHERE store_id = ANY($1)`, pq.Array(stores))
 		} else {
 			res, err = get(db, `SELECT * FROM product`)
 		}

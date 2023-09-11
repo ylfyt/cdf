@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
@@ -73,25 +75,27 @@ func main() {
 	})
 
 	r.GET("/store", func(ctx *gin.Context) {
-		storeIdStr := ctx.Query("user")
-		userId := 0
-		if storeIdStr != "" {
-			userIdTmp, err := strconv.Atoi(storeIdStr)
-			if err != nil {
-				fmt.Println("Err", err)
-				ctx.JSON(http.StatusInternalServerError, ResponseDto{
-					Success: false,
-					Message: err.Error(),
-				})
-				return
+		userStr := ctx.Query("user")
+		var users []string
+		if userStr != "" {
+			for _, user := range strings.Split(userStr, ",") {
+				_, err := strconv.Atoi(user)
+				if err != nil {
+					fmt.Println("Err", err)
+					ctx.JSON(http.StatusInternalServerError, ResponseDto{
+						Success: false,
+						Message: err.Error(),
+					})
+					return
+				}
+				users = append(users, user)
 			}
-			userId = userIdTmp
 		}
 
 		var res []map[string]any
 		var err error
-		if userId != 0 {
-			res, err = get(db, `SELECT * FROM store WHERE user_id = ?`, userId)
+		if len(users) != 0 {
+			res, err = get(db, fmt.Sprintf(`SELECT * FROM store WHERE user_id IN (%s)`, strings.Join(users, ",")))
 		} else {
 			res, err = get(db, `SELECT * FROM store`)
 		}
@@ -103,60 +107,94 @@ func main() {
 			})
 			return
 		}
+
+		storeMap := map[string]bool{}
 		for _, store := range res {
-			url := fmt.Sprintf("http://localhost:4000/product?store=%s", fmt.Sprint(store["id"]))
-			req, err := http.NewRequest("GET", url, nil)
-			if err != nil {
-				fmt.Println("Err", err)
-				ctx.JSON(http.StatusInternalServerError, ResponseDto{
-					Success: false,
-					Message: err.Error(),
-				})
-				return
+			if store["id"] == nil {
+				continue
 			}
+			storeMap[fmt.Sprint(store["id"])] = true
+		}
 
-			// Send the request
-			resp, err := client.Do(req)
-			if err != nil {
-				fmt.Println("Err", err)
-				ctx.JSON(http.StatusInternalServerError, ResponseDto{
-					Success: false,
-					Message: err.Error(),
-				})
-				return
+		storeIds := []string{}
+		for store := range storeMap {
+			storeIds = append(storeIds, store)
+		}
+
+		url := fmt.Sprintf("http://localhost:4000/product?store=%s", strings.Join(storeIds, ","))
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			fmt.Println("Err", err)
+			ctx.JSON(http.StatusInternalServerError, ResponseDto{
+				Success: false,
+				Message: err.Error(),
+			})
+			return
+		}
+
+		// Send the request
+		resp, err := client.Do(req)
+		if err != nil {
+			fmt.Println("Err", err)
+			ctx.JSON(http.StatusInternalServerError, ResponseDto{
+				Success: false,
+				Message: err.Error(),
+			})
+			return
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Println("Err", err)
+			ctx.JSON(http.StatusInternalServerError, ResponseDto{
+				Success: false,
+				Message: err.Error(),
+			})
+			return
+		}
+
+		var result ResponseDto
+		err = json.Unmarshal(body, &result)
+		if err != nil {
+			fmt.Println("Err", err)
+			ctx.JSON(http.StatusInternalServerError, ResponseDto{
+				Success: false,
+				Message: err.Error(),
+			})
+			return
+		}
+
+		if !result.Success {
+			fmt.Println("???????", result.Message)
+			ctx.JSON(http.StatusInternalServerError, ResponseDto{
+				Success: false,
+				Message: result.Message,
+			})
+			return
+		}
+
+		products, ok := result.Data.([]any)
+		if !ok {
+			fmt.Println("===================", reflect.TypeOf(result.Data))
+			ctx.JSON(http.StatusInternalServerError, ResponseDto{
+				Success: false,
+				Message: "?????",
+			})
+			return
+		}
+
+		for _, store := range res {
+			storeProduct := []map[string]any{}
+			for _, product := range products {
+				product, ok := product.(map[string]any)
+				if !ok {
+					continue
+				}
+				if fmt.Sprint(store["id"]) == fmt.Sprint(product["store_id"]) {
+					storeProduct = append(storeProduct, product)
+				}
 			}
-
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				fmt.Println("Err", err)
-				ctx.JSON(http.StatusInternalServerError, ResponseDto{
-					Success: false,
-					Message: err.Error(),
-				})
-				return
-			}
-
-			var result ResponseDto
-			err = json.Unmarshal(body, &result)
-			if err != nil {
-				fmt.Println("Err", err)
-				ctx.JSON(http.StatusInternalServerError, ResponseDto{
-					Success: false,
-					Message: err.Error(),
-				})
-				return
-			}
-
-			if !result.Success {
-				fmt.Println("???????", result.Message)
-				ctx.JSON(http.StatusInternalServerError, ResponseDto{
-					Success: false,
-					Message: result.Message,
-				})
-				return
-			}
-
-			store["product"] = result.Data
+			store["product"] = storeProduct
 		}
 
 		ctx.JSON(http.StatusOK, ResponseDto{
