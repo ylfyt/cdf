@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gocql/gocql"
@@ -97,6 +98,10 @@ func getConn(dbType string, conn string) (any, error) {
 
 	if dbType == "MySQL" {
 		sqlDb, err := sql.Open("mysql", conn)
+		if err == nil {
+			sqlDb.SetMaxOpenConns(1000)
+			sqlDb.SetConnMaxLifetime(time.Minute * 4)
+		}
 		return sqlDb, err
 	}
 
@@ -116,6 +121,8 @@ func getConn(dbType string, conn string) (any, error) {
 			Username: username,
 			Password: password,
 		}
+		cluster.Timeout = 10 * time.Second
+		cluster.WriteTimeout = 10 * time.Second
 		session, err := cluster.CreateSession()
 		return session, err
 	}

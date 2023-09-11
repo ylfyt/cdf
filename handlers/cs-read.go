@@ -116,9 +116,9 @@ func (me *HandlerCtx) CsRead(conn *gocql.Session, table *models.QueryTable, wher
 		),
 	)
 
-	fmt.Println("=== READ CS ===")
-	fmt.Println(query)
-	fmt.Println("*** READ CS ***")
+	// fmt.Println("=== READ CS ===")
+	// fmt.Println(query)
+	// fmt.Println("*** READ CS ***")
 
 	iter := conn.Query(query, queryParams...).Iter()
 

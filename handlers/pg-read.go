@@ -50,9 +50,9 @@ func (me *HandlerCtx) PgRead(conn *sql.DB, table *models.QueryTable, wheres []*m
 		),
 	)
 
-	fmt.Println("=== READ PG ===")
-	fmt.Println(query)
-	fmt.Println("*** READ PG ***")
+	// fmt.Println("=== READ PG ===")
+	// fmt.Println(query)
+	// fmt.Println("*** READ PG ***")
 
 	rows, err := conn.Query(query, queryParams...)
 	if err != nil {

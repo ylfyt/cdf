@@ -64,6 +64,7 @@ func requestHandler(w http.ResponseWriter, r *http.Request) {
 
 	data, err := handler.Execute(stmt)
 	if err != nil {
+		fmt.Println("Err", err)
 		sendError(w, fmt.Sprintf("Failed to parse query: %v\n", err))
 		return
 	}

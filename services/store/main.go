@@ -61,6 +61,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	db.SetMaxOpenConns(1000)
 
 	client := &http.Client{}
 
@@ -103,7 +104,7 @@ func main() {
 			return
 		}
 		for _, store := range res {
-			url := fmt.Sprintf("http://localhost:4000/product?store=%s", store["id"])
+			url := fmt.Sprintf("http://localhost:4000/product?store=%s", fmt.Sprint(store["id"]))
 			req, err := http.NewRequest("GET", url, nil)
 			if err != nil {
 				fmt.Println("Err", err)
@@ -184,7 +185,7 @@ func main() {
 		}
 
 		for _, store := range res {
-			url := fmt.Sprintf("http://localhost:4000/product?store=%s", store["id"])
+			url := fmt.Sprintf("http://localhost:4000/product?store=%s", fmt.Sprint(store["id"]))
 			req, err := http.NewRequest("GET", url, nil)
 			if err != nil {
 				fmt.Println("Err", err)

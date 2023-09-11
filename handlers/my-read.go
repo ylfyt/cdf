@@ -36,9 +36,9 @@ func (me *HandlerCtx) MyRead(conn *sql.DB, table *models.QueryTable, wheres []*m
 		),
 	)
 
-	fmt.Println("=== READ MY ===")
-	fmt.Println(query)
-	fmt.Println("*** READ MY ***")
+	// fmt.Println("=== READ MY ===")
+	// fmt.Println(query)
+	// fmt.Println("*** READ MY ***")
 
 	rows, err := conn.Query(query, queryParams...)
 	if err != nil {

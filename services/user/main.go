@@ -75,7 +75,7 @@ func main() {
 		}
 
 		for _, user := range res {
-			url := fmt.Sprintf("http://localhost:5000/store?user=%s", user["id"])
+			url := fmt.Sprintf("http://localhost:5000/store?user=%s", fmt.Sprint(user["id"]))
 			req, err := http.NewRequest("GET", url, nil)
 			if err != nil {
 				fmt.Println("Err", err)
