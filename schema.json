@@ -8,24 +8,6 @@
       "tables": {
         "store": {
           "name": "store",
-          "auth": [
-            {
-              "action": "c",
-              "rule": {
-                "auth.user_id": "data.user_id",
-                "auth.age": {
-                  "$gte": 20
-                }
-              }
-            },
-            {
-              "action": "du",
-              "rule": {
-                "$user_id": "auth.user_id",
-                "data.user_id": "auth.user_id"
-              }
-            }
-          ],
           "fields": {
             "id": "int",
             "user_id": {
@@ -57,14 +39,6 @@
       "tables": {
         "product": {
           "name": "product",
-          "auth": [
-            {
-              "action": "cu",
-              "rule": {
-                "data.store_id": "auth.store_id"
-              }
-            }
-          ],
           "fields": {
             "id": "int",
             "name": "string",
