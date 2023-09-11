@@ -65,12 +65,32 @@ func main() {
 	})
 
 	r.GET("/product", func(ctx *gin.Context) {
-		res, err := get(db, `SELECT * FROM product`)
+		storeIdStr := ctx.Query("store")
+		storeId := 0
+		if storeIdStr != "" {
+			storeIdTmp, err := strconv.Atoi(storeIdStr)
+			if err != nil {
+				fmt.Println("Err", err)
+				ctx.JSON(http.StatusInternalServerError, ResponseDto{
+					Success: false,
+					Message: err.Error(),
+				})
+				return
+			}
+			storeId = storeIdTmp
+		}
+		var res []map[string]any
+		var err error
+		if storeId != 0 {
+			res, err = get(db, `SELECT * FROM product WHERE store_id = $1`, storeId)
+		} else {
+			res, err = get(db, `SELECT * FROM product`)
+		}
 		if err != nil {
 			fmt.Println("Err", err)
 			ctx.JSON(http.StatusInternalServerError, ResponseDto{
 				Success: false,
-				Message: "",
+				Message: err.Error(),
 			})
 			return
 		}
